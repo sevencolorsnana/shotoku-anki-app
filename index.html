@@ -81,10 +81,6 @@
         <div id="qScroll" class="overflow-y-auto max-h-[calc(100dvh-330px)]">
           <div id="qText" class="text-[15px] leading-[1.9] whitespace-pre-wrap"></div>
         </div>
-        <div id="answerBox" class="hidden mt-3 p-3 bg-emerald-50 dark:bg-emerald-950/60 rounded-xl ring-1 ring-emerald-200 dark:ring-emerald-900 pop">
-          <div class="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mb-0.5">正解</div>
-          <div id="answerText" class="answer-reveal text-[17px] leading-relaxed"></div>
-        </div>
       </div>
     </div>
 
@@ -415,7 +411,6 @@ function renderCard() {
     const el = $('qText').querySelector('.blink');
     if (el) el.scrollIntoView({ block: 'center', behavior: 'instant' });
   }, 50);
-  $('answerBox').classList.add('hidden');
   $('revealBtn').classList.remove('hidden');
   $('judgeBtns').classList.add('hidden');
   updateProgress();
@@ -431,13 +426,19 @@ function updateProgress() {
 function reveal() {
   const c = cards[queueIdx];
   if (!c) return;
-  $('answerText').textContent = c.answer;
-  $('answerBox').classList.remove('hidden');
+  // 正解を穴の位置にインライン表示（視線移動を減らす）
+  const el = $('qText').querySelector('.blink') || $('qText').querySelector('.hole, .hole-wrong');
+  if (el) {
+    el.classList.remove('blink');
+    el.className = 'answer-reveal pop';
+    el.style.background = 'rgba(16,185,129,.12)';
+    el.style.borderRadius = '4px';
+    el.style.padding = '0 2px';
+    el.textContent = '〔 ' + c.answer + ' 〕';
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
   $('revealBtn').classList.add('hidden');
   $('judgeBtns').classList.remove('hidden');
-  const el = $('qText').querySelector('.blink');
-  if (el) el.classList.remove('blink');
-  $('answerBox').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 
 // ── SM-2 ──
@@ -548,8 +549,12 @@ function judge(ok) {
 
   if (ok) { confetti(); }
   else {
-    const span = $('qText').querySelector('.hole, .hole-wrong');
-    if (span) span.className = 'hole-wrong';
+    // インライン表示中の正解を赤に切り替えて目立たせる
+    const span = $('qText').querySelector('.answer-reveal');
+    if (span) {
+      span.className = 'hole-wrong';
+      span.style.background = '';
+    }
   }
   queueIdx++;
   saveState();
