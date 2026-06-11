@@ -9,7 +9,8 @@
 <script>tailwind.config = { darkMode: 'class' };</script>
 <style>
   :root { --safe-bottom: env(safe-area-inset-bottom, 0px); }
-  body { -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+  body { -webkit-tap-highlight-color: transparent; overscroll-behavior: none; touch-action: manipulation; }
+  button, label, a { touch-action: manipulation; }
   .blink { animation: blink 1.2s ease-in-out infinite; }
   @keyframes blink { 50% { opacity: 0.35; } }
   .hole { color: #4f46e5; font-weight: 700; background: rgba(99,102,241,.1); border-radius: 4px; padding: 0 2px; }
@@ -24,8 +25,6 @@
   @keyframes fall { to { transform: translateY(105vh) rotate(720deg); } }
   .card-in { animation: cardIn .28s cubic-bezier(.2,.9,.3,1.2); }
   @keyframes cardIn { from { opacity: 0; transform: translateX(28px) scale(.98); } to { opacity: 1; transform: none; } }
-  .shake { animation: shake .4s; }
-  @keyframes shake { 20%,60% { transform: translateX(-6px); } 40%,80% { transform: translateX(6px); } }
   .pop { animation: pop .3s cubic-bezier(.2,.9,.3,1.4); }
   @keyframes pop { from { transform: scale(.7); opacity: 0; } to { transform: none; opacity: 1; } }
   .pressable { transition: transform .08s, filter .15s; }
@@ -403,7 +402,7 @@ function renderCard() {
       const oid = c.section + '_' + String(n).padStart(3, '0');
       return `<span class="${wrongMap[oid] ? 'mask-wrong' : 'mask'}">●</span>`;
     });
-  $('qCard').classList.remove('card-in', 'shake');
+  $('qCard').classList.remove('card-in');
   void $('qCard').offsetWidth;
   $('qCard').classList.add('card-in');
   $('qScroll').scrollTop = 0;
@@ -492,7 +491,6 @@ function judge(ok) {
   else {
     const span = $('qText').querySelector('.hole, .hole-wrong');
     if (span) span.className = 'hole-wrong';
-    $('qCard').classList.add('shake');
   }
   queueIdx++;
   saveState();
