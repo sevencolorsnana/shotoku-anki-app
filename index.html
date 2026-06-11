@@ -181,7 +181,7 @@
 
 <script>
 'use strict';
-const APP_VER = 'v12';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v13';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 const DEFAULTS = {
   proxy: 'https://notion-proxy.djsa9pro.workers.dev',
@@ -428,15 +428,34 @@ function updateProgress() {
 function reveal() {
   const c = cards[queueIdx];
   if (!c) return;
-  // 正解を穴の位置にインライン表示（視線移動を減らす）
+  // 穴の位置はそのまま、真上に吹き出しで正解を表示（本文を動かさない）
   const el = $('qText').querySelector('.blink') || $('qText').querySelector('.hole, .hole-wrong');
   if (el) {
     el.classList.remove('blink');
-    el.className = 'answer-reveal pop';
-    el.style.background = 'rgba(16,185,129,.12)';
-    el.style.borderRadius = '4px';
-    el.style.padding = '0 2px';
-    el.textContent = '〔 ' + c.answer + ' 〕';
+    el.style.position = 'relative';
+    const pop = document.createElement('span');
+    pop.id = 'ansPop';
+    pop.className = 'pop';
+    pop.textContent = c.answer;
+    pop.style.cssText =
+      'position:absolute;bottom:calc(100% + 8px);left:0;z-index:30;' +
+      'background:#059669;color:#fff;font-weight:700;font-size:16px;line-height:1.5;' +
+      'padding:8px 12px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.25);' +
+      'width:max-content;max-width:min(78vw,400px);white-space:normal;';
+    const tail = document.createElement('span');
+    tail.style.cssText =
+      'position:absolute;top:100%;left:14px;border:7px solid transparent;border-top-color:#059669;';
+    pop.appendChild(tail);
+    el.appendChild(pop);
+    // 画面右にはみ出す場合は左へずらす
+    requestAnimationFrame(() => {
+      const r = pop.getBoundingClientRect();
+      const over = r.right - (document.documentElement.clientWidth - 10);
+      if (over > 0) {
+        pop.style.left = (-over) + 'px';
+        tail.style.left = (14 + over) + 'px';
+      }
+    });
     el.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
   $('revealBtn').classList.add('hidden');
@@ -551,11 +570,14 @@ function judge(ok) {
 
   if (ok) { confetti(); }
   else {
-    // インライン表示中の正解を赤に切り替えて目立たせる
-    const span = $('qText').querySelector('.answer-reveal');
-    if (span) {
-      span.className = 'hole-wrong';
-      span.style.background = '';
+    // 穴と吹き出しを赤に切り替えて目立たせる
+    const span = $('qText').querySelector('.hole, .hole-wrong');
+    if (span) span.classList.replace('hole', 'hole-wrong');
+    const pop = $('ansPop');
+    if (pop) {
+      pop.style.background = '#dc2626';
+      const tail = pop.querySelector('span');
+      if (tail) tail.style.borderTopColor = '#dc2626';
     }
   }
   queueIdx++;
