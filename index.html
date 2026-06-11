@@ -41,7 +41,7 @@
                  bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-lg">
     <div class="px-4 pt-2.5 pb-2 flex items-center justify-between">
       <div class="leading-tight">
-        <div class="text-[11px] opacity-80">所得税法 理論暗記</div>
+        <div class="text-[11px] opacity-80">所得税法 理論暗記 <span id="appVer" class="opacity-60"></span></div>
         <div class="text-sm font-bold">試験まで <span id="daysLeft">--</span>日
           <span class="ml-2 text-[11px] font-normal opacity-90">🔥<span id="streak">0</span>連続</span>
         </div>
@@ -181,6 +181,7 @@
 
 <script>
 'use strict';
+const APP_VER = 'v12';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 const DEFAULTS = {
   proxy: 'https://notion-proxy.djsa9pro.workers.dev',
@@ -237,6 +238,7 @@ document.querySelectorAll('.tabbtn').forEach(b => b.onclick = () => showTab(b.da
 
 function daysToExam() { return Math.max(0, Math.ceil((EXAM_DATE - new Date()) / 86400000)); }
 $('daysLeft').textContent = daysToExam();
+$('appVer').textContent = APP_VER;
 
 // ── Notion API ──
 async function notion(path, payload, method = 'POST') {
