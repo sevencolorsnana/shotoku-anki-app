@@ -111,7 +111,7 @@
         <button onclick="savePreset()" class="px-3 py-1.5 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-lg pressable">＋プリセット保存</button>
       </div>
       <div id="presetList" class="flex gap-2 mb-3 flex-wrap"></div>
-      <div id="rangeList" class="grid grid-cols-2 gap-x-2 text-sm max-h-[55vh] overflow-y-auto"></div>
+      <div id="rangeList" class="text-sm max-h-[55vh] overflow-y-auto"></div>
       <button onclick="applyRange()" class="mt-4 w-full py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold shadow pressable">この範囲で出題</button>
     </div>
   </main>
@@ -667,18 +667,16 @@ function jumpTo(id) {
 }
 
 // ── 範囲選択 ──
-const ALL_SECTIONS = (() => {
-  const counts = { 1: 3, 2: 28, 3: 8, 4: 3, 5: 7, 6: 9, 7: 6, 8: 2, 9: 3, 10: 2 };
-  const out = [];
-  for (const [maj, n] of Object.entries(counts)) for (let i = 1; i <= n; i++) out.push(maj + '-' + i);
-  return out;
-})();
+const SECTION_TITLES = {"1-1":"個人の納税義務者と課税所得の範囲等","1-2":"法人の納税義務者と課税所得の範囲等","1-3":"納税地","2-1":"非課税所得","2-2":"保険金、損害賠償金等を取得した場合、支出した場合の取扱い","2-3":"年金についての課税関係","2-4":"各種所得の意義及び金額","2-5":"給与所得","2-6":"退職所得","2-7":"借地権等の設定に伴い取得した権利金の取扱い","2-8":"所得金額の計算の通則","2-9":"収入金額の評価の別段の定め","2-10":"資産の無償又は低額による移転があった場合","2-11":"収入及び費用の帰属時期の特例","2-12":"固定資産の交換の場合の譲渡所得の特例","2-13":"居住用財産を譲渡した場合の課税の特例","2-14":"利子所得、配当所得の課税関係","2-15":"有価証券の譲渡による所得の課税関係","2-16":"特定口座制度及び特定管理口座制度","2-17":"非課税口座制度","2-18":"特定の取締役等が受ける新株予約権の行使による株式の取得に係る経済的利益の非課税等","2-19":"特定中小会社が発行した株式に係る特例","2-20":"先物取引に係る所得の課税関係","2-21":"家事関連費等の取扱い","2-22":"資産について生じた損失の取扱い","2-23":"債権が回収不能となった場合の取扱い","2-24":"貸倒引当金","2-25":"事業を営む居住者と生計を一にする親族が支払を受ける対価","2-26":"資産に係る控除対象外消費税額等の必要経費算入","2-27":"取得費（有価証券の取得費を除く。）","2-28":"青色申告特別控除","3-1":"課税標準","3-2":"申告分離課税","3-3":"損益通算","3-4":"純損失の繰越控除","3-5":"雑損失の繰越控除","3-6":"居住用財産の買換え等の場合の譲渡損失の損益通算及び繰越控除","3-7":"特定居住用財産の譲渡損失の損益通算及び繰越控除","3-8":"所得金額調整控除","4-1":"所得控除（物的控除）","4-2":"所得控除（人的控除）","4-3":"医療費控除","5-1":"平均課税制度","5-2":"配当控除","5-3":"外国税額控除","5-4":"住宅借入金等を有する場合の所得税額の特別控除","5-5":"転任後の再居住年以後の特例","5-6":"認定住宅等に係る税額控除","6-1":"予定納税制度（予定納税額の減額承認申請を除く。）","6-2":"予定納税額の減額承認申請","6-3":"確定申告（死亡又は出国の場合を除く。）","6-4":"死亡又は出国の場合の確定申告","6-5":"確定申告による納付","6-6":"延納","6-7":"純損失の繰戻しによる還付","6-8":"青色申告制度","6-9":"青色申告者の特典","7-1":"源泉徴収","7-2":"利子所得、配当所得の源泉徴収","7-3":"給与所得の源泉徴収","7-4":"年末調整","7-5":"退職所得の源泉徴収","7-6":"公的年金等の源泉徴収","8-1":"帳簿書類の備付け等及び添付書類並びに総収入金額報告書の提出","8-2":"法定調書","9-1":"修正申告","9-2":"更正の請求","9-3":"更正又は決定","9-4":"不服申立て","10-1":"国外転出（出国）時課税制度","10-2":"国外転出（贈与等）時課税制度"};
+const ALL_SECTIONS = Object.keys(SECTION_TITLES);
 function renderRange() {
   const sel = selectedSections() || ALL_SECTIONS;
   $('rangeList').innerHTML = ALL_SECTIONS.map(s =>
-    `<label class="flex items-center gap-2 py-1">
-      <input type="checkbox" class="rangecb w-4 h-4 accent-indigo-600" value="${s}" ${sel.includes(s) ? 'checked' : ''}>
-      <span>問題${s}</span></label>`).join('');
+    `<label class="flex items-start gap-2 py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
+      <input type="checkbox" class="rangecb w-4 h-4 mt-0.5 shrink-0 accent-indigo-600" value="${s}" ${sel.includes(s) ? 'checked' : ''}>
+      <span class="leading-snug"><b class="text-indigo-600 dark:text-indigo-400">${s}</b>
+        <span class="text-[12px] text-slate-600 dark:text-slate-300">${esc(SECTION_TITLES[s] || '')}</span></span>
+    </label>`).join('');
   renderPresets();
 }
 function rangeAll(on) { document.querySelectorAll('.rangecb').forEach(cb => cb.checked = on); }
