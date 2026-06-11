@@ -148,7 +148,10 @@
                  bg-white/90 dark:bg-slate-900/90 backdrop-blur border-t border-slate-200 dark:border-slate-800
                  px-3 pt-2.5" style="padding-bottom: calc(10px + var(--safe-bottom));">
     <div class="flex items-center justify-between mb-1.5">
-      <button onclick="skipHeading()" class="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 pressable">⏩ 次の見出し</button>
+      <div class="flex gap-1.5">
+        <button id="undoBtn" onclick="undo()" class="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 pressable" disabled>↩ 戻る</button>
+        <button onclick="skipHeading()" class="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 pressable">⏩ 見出し</button>
+      </div>
       <span class="text-[11px] text-slate-400">進捗 <span id="progressText">0/0</span></span>
       <button onclick="skipSection()" class="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 pressable">⏭ 次の題</button>
     </div>
@@ -372,6 +375,7 @@ async function loadCards(force) {
       cards = cards.concat(bySec[s]);
     }
     queueIdx = 0; wrongCards = []; sessionResults = {}; streak = 0;
+    undoStack = []; updateUndoBtn();
     saveState();
     $('loadingBox').classList.add('hidden');
     if (cards.length === 0) showDone();
@@ -460,9 +464,64 @@ function sm2(c, ok) {
   return { interval, ef, nextStr };
 }
 
+// ── アンドゥ ──
+let undoStack = [];
+function updateUndoBtn() {
+  const b = $('undoBtn');
+  b.disabled = undoStack.length === 0;
+  b.classList.toggle('opacity-40', undoStack.length === 0);
+}
+function undo() {
+  const u = undoStack.pop();
+  if (!u) return;
+  const c = cards[u.idx];
+  // ローカル統計の巻き戻し
+  const st = sessionResults[c.section];
+  if (st) { u.ok ? st.ok-- : st.ng--; }
+  if (!u.inWrongReview) {
+    const h = history[c.section];
+    if (h) { u.ok ? h.ok-- : h.ng--; localStorage.setItem('history', JSON.stringify(history)); }
+  }
+  if (u.wasWrong) wrongMap[c.id] = true; else delete wrongMap[c.id];
+  localStorage.setItem('wrongMap', JSON.stringify(wrongMap));
+  if (!u.ok) {
+    const wi = wrongCards.lastIndexOf(c);
+    if (wi >= 0) wrongCards.splice(wi, 1);
+  }
+  streak = u.streak;
+  // SM-2とNotionの巻き戻し
+  if (!u.inWrongReview) {
+    c.correct = u.prev.correct; c.total = u.prev.total;
+    c.interval = u.prev.interval; c.ef = u.prev.ef;
+    notion('/v1/pages/' + c.pageId, {
+      properties: {
+        '次回出題日': { date: { start: todayStr() } },
+        '間隔_日数': { number: c.interval },
+        '難易度係数': { number: c.ef },
+        '正答回数': { number: c.correct },
+        '出題回数': { number: c.total },
+      },
+    }, 'PATCH').catch(() => toast('巻き戻しの書き込み失敗', 'bg-rose-500'));
+  }
+  queueIdx = u.idx;
+  saveState();
+  updateUndoBtn();
+  $('quizBox').classList.remove('hidden'); $('quizBox').classList.add('flex');
+  $('doneBox').classList.add('hidden'); $('doneBox').classList.remove('flex');
+  renderCard();
+  toast('↩ 1問戻しました', 'bg-indigo-500');
+}
+
 function judge(ok) {
   const c = cards[queueIdx];
   if (!c) return;
+  undoStack.push({
+    idx: queueIdx, ok, inWrongReview,
+    wasWrong: !!wrongMap[c.id], streak,
+    prev: { correct: c.correct, total: c.total, interval: c.interval, ef: c.ef },
+  });
+  if (undoStack.length > 20) undoStack.shift();
+  updateUndoBtn();
   const r = sm2(c, ok);
   const st = sessionResults[c.section] = sessionResults[c.section] || { ok: 0, ng: 0, title: c.title };
   ok ? st.ok++ : st.ng++;
@@ -536,6 +595,7 @@ function startWrongReview() {
   if (wrongCards.length === 0) return;
   inWrongReview = true;
   cards = wrongCards.slice(); wrongCards = []; queueIdx = 0;
+  undoStack = []; updateUndoBtn();
   saveState();
   $('doneBox').classList.add('hidden'); $('doneBox').classList.remove('flex');
   $('quizBox').classList.remove('hidden'); $('quizBox').classList.add('flex');
