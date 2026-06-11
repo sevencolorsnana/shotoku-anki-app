@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>所得税法 理論暗記</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { darkMode: 'class' };
+</script>
+<style>
+  body { -webkit-tap-highlight-color: transparent; }
+  .blink { animation: blink 1.2s ease-in-out infinite; }
+  @keyframes blink { 50% { opacity: 0.35; } }
+  .hole { color: #2563eb; font-weight: 700; }
+  .dark .hole { color: #60a5fa; }
+  .hole-wrong { color: #dc2626; font-weight: 700; }
+  .dark .hole-wrong { color: #f87171; }
+  .answer-reveal { color: #16a34a; font-weight: 700; }
+  .dark .answer-reveal { color: #4ade80; }
+  .confetti-piece { position: fixed; width: 9px; height: 14px; top: -20px; z-index: 50; pointer-events: none; animation: fall linear forwards; }
+  @keyframes fall { to { transform: translateY(105vh) rotate(720deg); } }
+</style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen">
+<div class="mx-auto max-w-[520px] min-h-screen flex flex-col">
+
+  <!-- ヘッダー -->
+  <header class="px-4 pt-4 pb-2 flex items-center justify-between">
+    <div>
+      <div class="text-xs text-slate-500 dark:text-slate-400">試験まで <span id="daysLeft" class="font-bold text-rose-600 dark:text-rose-400">--</span>日</div>
+      <div class="text-xs text-slate-500 dark:text-slate-400">進捗: <span id="progressText" class="font-bold">0/0</span></div>
+    </div>
+    <div class="flex gap-1">
+      <button onclick="showTab('quiz')" id="tab-quiz" class="tabbtn px-3 py-1.5 rounded-lg text-sm font-medium">出題</button>
+      <button onclick="showTab('stats')" id="tab-stats" class="tabbtn px-3 py-1.5 rounded-lg text-sm font-medium">分析</button>
+      <button onclick="showTab('range')" id="tab-range" class="tabbtn px-3 py-1.5 rounded-lg text-sm font-medium">範囲</button>
+      <button onclick="showTab('settings')" id="tab-settings" class="tabbtn px-3 py-1.5 rounded-lg text-sm font-medium">⚙</button>
+    </div>
+  </header>
+
+  <!-- 出題タブ -->
+  <main id="view-quiz" class="flex-1 px-4 pb-6 flex flex-col">
+    <div id="loadingBox" class="flex-1 flex flex-col items-center justify-center gap-3 text-slate-500">
+      <div class="animate-spin w-8 h-8 border-4 border-blue-400 border-t-transparent rounded-full"></div>
+      <div id="loadingMsg" class="text-sm">読み込み中...</div>
+      <button id="loadBtn" onclick="loadCards()" class="hidden px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">データを読み込む</button>
+    </div>
+
+    <div id="quizBox" class="hidden flex-1 flex flex-col">
+      <div class="bg-white dark:bg-slate-800 rounded-2xl shadow p-4 flex-1 flex flex-col">
+        <div class="flex items-center gap-2 flex-wrap mb-2">
+          <span id="qSection" class="text-xs font-bold bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded"></span>
+          <span id="qTitle" class="text-xs font-medium text-slate-600 dark:text-slate-300"></span>
+          <span id="qHole" class="text-xs text-slate-400"></span>
+          <span id="wrongBadge" class="hidden text-xs font-bold bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300 px-2 py-0.5 rounded">前回不正解</span>
+        </div>
+        <div id="qHeading" class="text-xs text-slate-400 mb-2"></div>
+        <div id="qText" class="text-[15px] leading-relaxed flex-1 overflow-y-auto whitespace-pre-wrap"></div>
+        <div class="mt-4 border-t border-slate-200 dark:border-slate-700 pt-3">
+          <div id="answerBox" class="hidden mb-3 p-3 bg-emerald-50 dark:bg-emerald-950 rounded-xl">
+            <div class="text-xs text-slate-500 mb-1">正解</div>
+            <div id="answerText" class="answer-reveal text-base"></div>
+          </div>
+          <button id="revealBtn" onclick="reveal()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-xl font-bold transition">正解を確認する</button>
+          <div id="judgeBtns" class="hidden grid grid-cols-2 gap-3">
+            <button onclick="judge(true)" class="py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-xl font-bold transition">✓ 正解</button>
+            <button onclick="judge(false)" class="py-3 bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white rounded-xl font-bold transition">✗ 不正解</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="doneBox" class="hidden flex-1 flex flex-col items-center justify-center gap-4 text-center">
+      <div class="text-5xl">🎉</div>
+      <div class="text-lg font-bold">今日の分は完了！</div>
+      <div id="doneStats" class="text-sm text-slate-500"></div>
+      <button id="reviewWrongBtn" onclick="startWrongReview()" class="hidden px-5 py-2.5 bg-amber-500 text-white rounded-xl font-bold">不正解だけ即時復習する</button>
+      <button onclick="loadCards(true)" class="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-bold">再読み込み</button>
+    </div>
+  </main>
+
+  <!-- 分析タブ -->
+  <main id="view-stats" class="hidden flex-1 px-4 pb-6">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow p-4">
+      <h2 class="font-bold mb-1">題ごとの正答率</h2>
+      <div class="text-xs text-slate-400 mb-3">本日のセッション + Notion累計</div>
+      <div id="statsList" class="space-y-2 text-sm"></div>
+    </div>
+  </main>
+
+  <!-- 範囲タブ -->
+  <main id="view-range" class="hidden flex-1 px-4 pb-6">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow p-4">
+      <h2 class="font-bold mb-3">出題範囲</h2>
+      <div class="flex gap-2 mb-3 flex-wrap">
+        <button onclick="rangeAll(true)" class="px-3 py-1 text-xs bg-slate-200 dark:bg-slate-700 rounded-lg">全選択</button>
+        <button onclick="rangeAll(false)" class="px-3 py-1 text-xs bg-slate-200 dark:bg-slate-700 rounded-lg">全解除</button>
+        <button onclick="savePreset()" class="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-lg">プリセット保存</button>
+      </div>
+      <div id="presetList" class="flex gap-2 mb-3 flex-wrap"></div>
+      <div id="rangeList" class="space-y-1 text-sm max-h-[60vh] overflow-y-auto"></div>
+      <button onclick="applyRange()" class="mt-4 w-full py-2.5 bg-blue-600 text-white rounded-xl font-bold">この範囲で出題</button>
+    </div>
+  </main>
+
+  <!-- 設定タブ -->
+  <main id="view-settings" class="hidden flex-1 px-4 pb-6">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow p-4 space-y-4 text-sm">
+      <h2 class="font-bold">設定</h2>
+      <label class="block">Notionトークン
+        <input id="setToken" type="password" class="mt-1 w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900">
+      </label>
+      <label class="block">プロキシURL
+        <input id="setProxy" type="text" class="mt-1 w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900">
+      </label>
+      <label class="block">データベースID
+        <input id="setDb" type="text" class="mt-1 w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900">
+      </label>
+      <label class="flex items-center justify-between">高正答率の穴をスキップ（正答率90%以上・3回以上出題）
+        <input id="setSkip" type="checkbox" class="w-5 h-5">
+      </label>
+      <label class="flex items-center justify-between">今日の分が終わったら不正解を即時復習
+        <input id="setRetry" type="checkbox" class="w-5 h-5" checked>
+      </label>
+      <label class="flex items-center justify-between">ダークモード
+        <input id="setDark" type="checkbox" class="w-5 h-5">
+      </label>
+      <button onclick="saveSettings()" class="w-full py-2.5 bg-blue-600 text-white rounded-xl font-bold">保存</button>
+      <div id="saveMsg" class="text-center text-emerald-600 text-xs"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+'use strict';
+const EXAM_DATE = new Date('2026-08-04T00:00:00');
+const DEFAULTS = {
+  proxy: 'https://notion-proxy.djsa9pro.workers.dev',
+  db: '36ffa2ca-2310-8184-85f0-c579a9cefb48',
+  token: '', skip: false, retry: true, dark: false,
+};
+
+// ── 設定 ──
+let cfg = Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem('cfg') || '{}'));
+function applyDark() { document.documentElement.classList.toggle('dark', cfg.dark); }
+applyDark();
+
+function saveSettings() {
+  cfg.token = document.getElementById('setToken').value.trim();
+  cfg.proxy = document.getElementById('setProxy').value.trim().replace(/\/$/, '');
+  cfg.db = document.getElementById('setDb').value.trim();
+  cfg.skip = document.getElementById('setSkip').checked;
+  cfg.retry = document.getElementById('setRetry').checked;
+  cfg.dark = document.getElementById('setDark').checked;
+  localStorage.setItem('cfg', JSON.stringify(cfg));
+  applyDark();
+  document.getElementById('saveMsg').textContent = '保存しました';
+  setTimeout(() => document.getElementById('saveMsg').textContent = '', 2000);
+}
+function fillSettings() {
+  document.getElementById('setToken').value = cfg.token;
+  document.getElementById('setProxy').value = cfg.proxy;
+  document.getElementById('setDb').value = cfg.db;
+  document.getElementById('setSkip').checked = cfg.skip;
+  document.getElementById('setRetry').checked = cfg.retry;
+  document.getElementById('setDark').checked = cfg.dark;
+}
+
+// ── タブ ──
+function showTab(name) {
+  for (const t of ['quiz', 'stats', 'range', 'settings']) {
+    document.getElementById('view-' + t).classList.toggle('hidden', t !== name);
+    const btn = document.getElementById('tab-' + t);
+    btn.className = 'tabbtn px-3 py-1.5 rounded-lg text-sm font-medium ' +
+      (t === name ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300');
+  }
+  if (name === 'stats') renderStats();
+  if (name === 'range') renderRange();
+  if (name === 'settings') fillSettings();
+}
+
+// ── 試験までの日数 ──
+function daysToExam() {
+  return Math.max(0, Math.ceil((EXAM_DATE - new Date()) / 86400000));
+}
+document.getElementById('daysLeft').textContent = daysToExam();
+
+// ── Notion API ──
+async function notion(path, payload, method = 'POST') {
+  const res = await fetch(cfg.proxy + path, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + cfg.token,
+      'Notion-Version': '2022-06-28',
+    },
+    body: payload ? JSON.stringify(payload) : undefined,
+  });
+  if (!res.ok) throw new Error('Notion API ' + res.status + ': ' + (await res.text()).slice(0, 200));
+  return res.json();
+}
+
+function prop(p, name, type) {
+  const v = p[name];
+  if (!v) return type === 'number' ? 0 : '';
+  if (type === 'title') return (v.title[0] || {}).plain_text || '';
+  if (type === 'rich_text') return (v.rich_text[0] || {}).plain_text || '';
+  if (type === 'number') return v.number ?? 0;
+  if (type === 'select') return v.select ? v.select.name : '';
+  if (type === 'date') return v.date ? v.date.start : '';
+  return '';
+}
+
+// ── データ ──
+let cards = [];       // 今日の出題キュー
+let queueIdx = 0;
+let sessionResults = {};  // section -> {ok, ng}
+let wrongCards = [];      // 今セッションで不正解
+let wrongMap = JSON.parse(localStorage.getItem('wrongMap') || '{}'); // id -> true（前回不正解）
+let currentSection = null;
+let inWrongReview = false;
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function selectedSections() {
+  const s = JSON.parse(localStorage.getItem('rangeSel') || 'null');
+  return s; // null = 全部
+}
+
+async function loadCards(force) {
+  inWrongReview = false;
+  const lb = document.getElementById('loadingBox');
+  lb.classList.remove('hidden');
+  document.getElementById('quizBox').classList.add('hidden');
+  document.getElementById('doneBox').classList.add('hidden');
+  document.getElementById('loadBtn').classList.add('hidden');
+  const msg = document.getElementById('loadingMsg');
+  if (!cfg.token) {
+    msg.textContent = '設定タブでNotionトークンを入力してください';
+    document.getElementById('loadBtn').classList.remove('hidden');
+    return;
+  }
+  try {
+    msg.textContent = '出題対象を取得中...';
+    let results = [], cursor = undefined, page = 0;
+    do {
+      const body = {
+        page_size: 100,
+        filter: { property: '次回出題日', date: { on_or_before: todayStr() } },
+        sorts: [{ property: '穴ID', direction: 'ascending' }],
+      };
+      if (cursor) body.start_cursor = cursor;
+      const j = await notion(`/v1/databases/${cfg.db}/query`, body);
+      results = results.concat(j.results);
+      cursor = j.has_more ? j.next_cursor : undefined;
+      msg.textContent = `出題対象を取得中... ${results.length}件`;
+    } while (cursor && ++page < 80);
+
+    let all = results.map(r => ({
+      pageId: r.id,
+      id: prop(r.properties, '穴ID', 'title'),
+      section: prop(r.properties, '題番号', 'rich_text'),
+      title: prop(r.properties, '題名', 'rich_text'),
+      heading: prop(r.properties, '大見出し', 'rich_text'),
+      question: prop(r.properties, '問題文', 'rich_text'),
+      answer: prop(r.properties, '正解', 'rich_text'),
+      holeNum: prop(r.properties, '穴番号', 'number'),
+      rank: prop(r.properties, '重要度', 'select'),
+      interval: prop(r.properties, '間隔_日数', 'number') || 1,
+      ef: prop(r.properties, '難易度係数', 'number') || 2.5,
+      correct: prop(r.properties, '正答回数', 'number'),
+      total: prop(r.properties, '出題回数', 'number'),
+    }));
+
+    // 範囲フィルタ
+    const sel = selectedSections();
+    if (sel) all = all.filter(c => sel.includes(c.section));
+    // 高正答率スキップ
+    if (cfg.skip) all = all.filter(c => !(c.total >= 3 && c.correct / c.total >= 0.9));
+
+    // 題番号単位でシャッフル、題内は穴番号順
+    const bySec = {};
+    for (const c of all) (bySec[c.section] = bySec[c.section] || []).push(c);
+    const secs = Object.keys(bySec);
+    for (let i = secs.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [secs[i], secs[j]] = [secs[j], secs[i]];
+    }
+    cards = [];
+    for (const s of secs) {
+      bySec[s].sort((a, b) => a.holeNum - b.holeNum);
+      cards = cards.concat(bySec[s]);
+    }
+    queueIdx = 0;
+    wrongCards = [];
+    sessionResults = {};
+    currentSection = null;
+    lb.classList.add('hidden');
+    if (cards.length === 0) {
+      showDone();
+    } else {
+      document.getElementById('quizBox').classList.remove('hidden');
+      renderCard();
+    }
+  } catch (e) {
+    msg.textContent = 'エラー: ' + e.message;
+    document.getElementById('loadBtn').classList.remove('hidden');
+  }
+}
+
+// ── 出題 ──
+function esc(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function renderCard() {
+  const c = cards[queueIdx];
+  if (!c) { showDone(); return; }
+  // 題が変わったら不正解マークをリセット
+  if (c.section !== currentSection) {
+    currentSection = c.section;
+  }
+  document.getElementById('qSection').textContent = '問題' + c.section;
+  document.getElementById('qTitle').textContent = c.title;
+  document.getElementById('qHole').textContent = '#穴' + c.holeNum + (c.rank ? ' ' + c.rank : '');
+  document.getElementById('qHeading').textContent = c.heading;
+  document.getElementById('wrongBadge').classList.toggle('hidden', !wrongMap[c.id]);
+
+  const wrongCls = wrongMap[c.id] ? 'hole-wrong' : 'hole';
+  // 〔_〕=出題中の穴、〔●n〕=他の穴（すべて伏せる。前回不正解の穴は赤）
+  document.getElementById('qText').innerHTML = esc(c.question)
+    .replace(/〔_〕/g, `<span class="${wrongCls} blink">〔　？　〕</span>`)
+    .replace(/〔●(\d+)〕/g, (m, n) => {
+      const otherId = c.section + '_' + String(n).padStart(3, '0');
+      return `<span class="${wrongMap[otherId] ? 'hole-wrong' : 'text-slate-400'}">●</span>`;
+    });
+
+  document.getElementById('answerBox').classList.add('hidden');
+  document.getElementById('revealBtn').classList.remove('hidden');
+  document.getElementById('judgeBtns').classList.add('hidden');
+  updateProgress();
+}
+
+function updateProgress() {
+  document.getElementById('progressText').textContent = Math.min(queueIdx, cards.length) + '/' + cards.length;
+}
+
+function reveal() {
+  const c = cards[queueIdx];
+  document.getElementById('answerText').textContent = c.answer;
+  document.getElementById('answerBox').classList.remove('hidden');
+  document.getElementById('revealBtn').classList.add('hidden');
+  document.getElementById('judgeBtns').classList.remove('hidden');
+  const el = document.getElementById('qText').querySelector('.blink');
+  if (el) { el.classList.remove('blink'); }
+}
+
+// ── SM-2 ──
+function intervalCap() {
+  const d = daysToExam();
+  if (d <= 7) return 1;
+  if (d <= 14) return 3;
+  if (d <= 30) return 7;
+  return 60;
+}
+
+function sm2(c, ok) {
+  let interval = c.interval, ef = c.ef;
+  if (ok) {
+    ef = Math.min(3.0, ef + 0.1);
+    if (c.total === 0 || interval <= 1) interval = c.total === 0 ? 1 : 3;
+    else interval = Math.round(interval * ef);
+  } else {
+    ef = Math.max(1.3, ef - 0.2);
+    interval = 1;
+  }
+  interval = Math.max(1, Math.min(interval, intervalCap(), daysToExam() || 1));
+  const next = new Date();
+  next.setDate(next.getDate() + interval);
+  const nextStr = next.getFullYear() + '-' + String(next.getMonth() + 1).padStart(2, '0') + '-' + String(next.getDate()).padStart(2, '0');
+  return { interval, ef, nextStr };
+}
+
+function judge(ok) {
+  const c = cards[queueIdx];
+  const r = sm2(c, ok);
+  // セッション統計
+  const st = sessionResults[c.section] = sessionResults[c.section] || { ok: 0, ng: 0, title: c.title };
+  ok ? st.ok++ : st.ng++;
+  // 不正解マーク
+  if (ok) delete wrongMap[c.id];
+  else { wrongMap[c.id] = true; wrongCards.push(c); }
+  localStorage.setItem('wrongMap', JSON.stringify(wrongMap));
+
+  // Notionへバックグラウンド書き戻し（即時復習モードでは書き戻さない）
+  if (!inWrongReview) {
+    notion('/v1/pages/' + c.pageId, {
+      properties: {
+        '次回出題日': { date: { start: r.nextStr } },
+        '間隔_日数': { number: r.interval },
+        '難易度係数': { number: r.ef },
+        '正答回数': { number: c.correct + (ok ? 1 : 0) },
+        '出題回数': { number: c.total + 1 },
+      },
+    }, 'PATCH').catch(e => console.warn('書き戻し失敗', c.id, e));
+    c.correct += ok ? 1 : 0;
+    c.total += 1;
+    c.interval = r.interval;
+    c.ef = r.ef;
+  }
+
+  if (ok) confetti();
+  else {
+    // 〔　？　〕を伏せたまま赤くハイライト
+    const span = document.getElementById('qText').querySelector('.hole, .hole-wrong');
+    if (span) { span.className = 'hole-wrong'; }
+  }
+  queueIdx++;
+  setTimeout(renderCard, ok ? 350 : 900);
+}
+
+function showDone() {
+  document.getElementById('quizBox').classList.add('hidden');
+  document.getElementById('loadingBox').classList.add('hidden');
+  document.getElementById('doneBox').classList.remove('hidden');
+  let ok = 0, ng = 0;
+  for (const s of Object.values(sessionResults)) { ok += s.ok; ng += s.ng; }
+  document.getElementById('doneStats').textContent = `正解 ${ok} / 不正解 ${ng}`;
+  const btn = document.getElementById('reviewWrongBtn');
+  const hasWrong = wrongCards.length > 0;
+  btn.classList.toggle('hidden', !hasWrong);
+  if (hasWrong && cfg.retry && !inWrongReview) startWrongReview();
+  updateProgress();
+}
+
+function startWrongReview() {
+  if (wrongCards.length === 0) return;
+  inWrongReview = true;
+  cards = wrongCards.slice();
+  wrongCards = [];
+  queueIdx = 0;
+  currentSection = null;
+  document.getElementById('doneBox').classList.add('hidden');
+  document.getElementById('quizBox').classList.remove('hidden');
+  renderCard();
+}
+
+// ── コンフェッティ ──
+function confetti() {
+  const colors = ['#f43f5e', '#3b82f6', '#22c55e', '#eab308', '#a855f7'];
+  for (let i = 0; i < 24; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.left = Math.random() * 100 + 'vw';
+    el.style.background = colors[i % colors.length];
+    el.style.animationDuration = (0.9 + Math.random() * 0.8) + 's';
+    el.style.transform = 'rotate(' + Math.random() * 360 + 'deg)';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 2000);
+  }
+}
+
+// ── 分析 ──
+function renderStats() {
+  const box = document.getElementById('statsList');
+  const secs = Object.keys(sessionResults).sort((a, b) => {
+    const [a1, a2] = a.split('-').map(Number), [b1, b2] = b.split('-').map(Number);
+    return a1 - b1 || a2 - b2;
+  });
+  if (secs.length === 0) {
+    box.innerHTML = '<div class="text-slate-400 text-sm">このセッションの採点データはまだありません</div>';
+    return;
+  }
+  box.innerHTML = secs.map(s => {
+    const st = sessionResults[s];
+    const total = st.ok + st.ng;
+    const rate = total ? Math.round(st.ok / total * 100) : 0;
+    const color = rate >= 80 ? 'bg-emerald-500' : rate >= 50 ? 'bg-amber-500' : 'bg-rose-500';
+    return `<div>
+      <div class="flex justify-between text-xs mb-0.5">
+        <span class="font-medium">${s} ${esc(st.title || '')}</span><span>${rate}%（${st.ok}/${total}）</span>
+      </div>
+      <div class="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+        <div class="h-full ${color}" style="width:${rate}%"></div>
+      </div></div>`;
+  }).join('');
+}
+
+// ── 範囲選択 ──
+const ALL_SECTIONS = (() => {
+  // 1-1〜10-2 の既知構成（71題）
+  const counts = { 1: 3, 2: 28, 3: 8, 4: 3, 5: 7, 6: 9, 7: 6, 8: 2, 9: 3, 10: 2 };
+  const out = [];
+  for (const [maj, n] of Object.entries(counts))
+    for (let i = 1; i <= n; i++) out.push(maj + '-' + i);
+  return out;
+})();
+
+function renderRange() {
+  const sel = selectedSections() || ALL_SECTIONS;
+  document.getElementById('rangeList').innerHTML = ALL_SECTIONS.map(s =>
+    `<label class="flex items-center gap-2 py-0.5">
+      <input type="checkbox" class="rangecb w-4 h-4" value="${s}" ${sel.includes(s) ? 'checked' : ''}>
+      <span>問題${s}</span></label>`).join('');
+  renderPresets();
+}
+function rangeAll(on) {
+  document.querySelectorAll('.rangecb').forEach(cb => cb.checked = on);
+}
+function applyRange() {
+  const sel = [...document.querySelectorAll('.rangecb:checked')].map(cb => cb.value);
+  localStorage.setItem('rangeSel', JSON.stringify(sel.length === ALL_SECTIONS.length ? null : sel));
+  showTab('quiz');
+  loadCards(true);
+}
+function savePreset() {
+  const name = prompt('プリセット名');
+  if (!name) return;
+  const sel = [...document.querySelectorAll('.rangecb:checked')].map(cb => cb.value);
+  const ps = JSON.parse(localStorage.getItem('presets') || '{}');
+  ps[name] = sel;
+  localStorage.setItem('presets', JSON.stringify(ps));
+  renderPresets();
+}
+function renderPresets() {
+  const ps = JSON.parse(localStorage.getItem('presets') || '{}');
+  document.getElementById('presetList').innerHTML = Object.keys(ps).map(n =>
+    `<button onclick="loadPreset('${esc(n)}')" class="px-3 py-1 text-xs bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-300 rounded-lg">${esc(n)}</button>`).join('');
+}
+function loadPreset(name) {
+  const ps = JSON.parse(localStorage.getItem('presets') || '{}');
+  const sel = ps[name] || [];
+  document.querySelectorAll('.rangecb').forEach(cb => cb.checked = sel.includes(cb.value));
+}
+
+// ── 起動 ──
+showTab('quiz');
+if (cfg.token) loadCards();
+else {
+  document.getElementById('loadingMsg').textContent = '設定タブでNotionトークンを入力してください';
+  document.getElementById('loadBtn').classList.remove('hidden');
+}
+</script>
+</body>
+</html>
