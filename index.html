@@ -148,7 +148,11 @@
   <footer id="footerBar" class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[520px] z-40
                  bg-white/90 dark:bg-slate-900/90 backdrop-blur border-t border-slate-200 dark:border-slate-800
                  px-3 pt-2.5" style="padding-bottom: calc(10px + var(--safe-bottom));">
-    <div class="text-center text-[11px] text-slate-400 mb-1.5">進捗 <span id="progressText">0/0</span></div>
+    <div class="flex items-center justify-between mb-1.5">
+      <button onclick="skipHeading()" class="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 pressable">⏩ 次の見出し</button>
+      <span class="text-[11px] text-slate-400">進捗 <span id="progressText">0/0</span></span>
+      <button onclick="skipSection()" class="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 pressable">⏭ 次の題</button>
+    </div>
     <button id="revealBtn" onclick="reveal()" class="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl font-bold text-base shadow-lg pressable">👀 正解を確認する</button>
     <div id="judgeBtns" class="hidden grid grid-cols-2 gap-3">
       <button onclick="judge(false)" class="py-3.5 bg-gradient-to-r from-rose-500 to-red-500 text-white rounded-2xl font-bold text-base shadow-lg pressable">✗ 不正解</button>
@@ -493,6 +497,28 @@ function judge(ok) {
   queueIdx++;
   saveState();
   setTimeout(renderCard, ok ? 300 : 800);
+}
+
+// ── スキップ ──
+function skipHeading() {
+  const c = cards[queueIdx];
+  if (!c) return;
+  let n = 0;
+  while (queueIdx < cards.length &&
+         cards[queueIdx].section === c.section &&
+         cards[queueIdx].heading === c.heading) { queueIdx++; n++; }
+  toast(`⏩ ${c.heading || '見出し'} を${n}問スキップ`, 'bg-slate-600');
+  saveState();
+  renderCard();
+}
+function skipSection() {
+  const c = cards[queueIdx];
+  if (!c) return;
+  let n = 0;
+  while (queueIdx < cards.length && cards[queueIdx].section === c.section) { queueIdx++; n++; }
+  toast(`⏭ 問題${c.section} を${n}問スキップ`, 'bg-slate-600');
+  saveState();
+  renderCard();
 }
 
 function showDone() {
