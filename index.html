@@ -614,6 +614,16 @@ function openEdit() {
   $('editModal').classList.remove('hidden');
 }
 function closeEdit() { $('editModal').classList.add('hidden'); }
+// 修正の差分を抽出（共通の前後を除いた変更部分）
+function diffMid(oldS, newS) {
+  let p = 0;
+  while (p < oldS.length && p < newS.length && oldS[p] === newS[p]) p++;
+  let s = 0;
+  while (s < oldS.length - p && s < newS.length - p &&
+         oldS[oldS.length - 1 - s] === newS[newS.length - 1 - s]) s++;
+  return { oldMid: oldS.slice(p, oldS.length - s), newMid: newS.slice(p, newS.length - s) };
+}
+
 async function saveEdit() {
   const c = cards[queueIdx];
   if (!c) return;
@@ -627,15 +637,66 @@ async function saveEdit() {
         '正解': { rich_text: [{ text: { content: a.slice(0, 500) } }] },
       },
     }, 'PATCH');
+    const oldQ = c.question;
     c.question = q; c.answer = a;
     saveState();
     closeEdit();
     renderCard();
-    toast('✓ 修正を保存しました', 'bg-emerald-600');
+    toast('✓ 保存。同じ題の他の穴へ反映中...', 'bg-emerald-600');
+    propagateEdit(c, oldQ, q).then(n => {
+      if (n > 0) toast(`✓ 他の${n}穴にも反映しました`, 'bg-emerald-600');
+      else toast('✓ 修正を保存しました（他の穴に該当箇所なし）', 'bg-emerald-600');
+    }).catch(e => toast('⚠ 一括反映エラー: ' + e.message, 'bg-rose-500'));
   } catch (e) {
     $('editMsg').textContent = '⚠ ' + e.message;
+    $('editSaveBtn').disabled = false;
+    return;
   }
   $('editSaveBtn').disabled = false;
+}
+
+// 同じ題のすべての穴に問題文の修正を反映する
+async function propagateEdit(c, oldQ, newQ) {
+  // 自分の穴マーカーを正規形（〔●n〕）に変換してから差分を取る
+  const mk = `〔●${c.holeNum}〕`;
+  const { oldMid, newMid } = diffMid(
+    oldQ.replaceAll('〔_〕', mk), newQ.replaceAll('〔_〕', mk));
+  if (!oldMid && !newMid) return 0;
+  if (oldMid.length < 2) return 0; // 差分が短すぎると誤置換のリスクが高い
+
+  // 同じ題の全穴をNotionから取得
+  let pages = [], cursor;
+  do {
+    const body = {
+      page_size: 100,
+      filter: { property: '題番号', rich_text: { equals: c.section } },
+    };
+    if (cursor) body.start_cursor = cursor;
+    const j = await notion(`/v1/databases/${cfg.db}/query`, body);
+    pages = pages.concat(j.results);
+    cursor = j.has_more ? j.next_cursor : undefined;
+  } while (cursor);
+
+  let n = 0;
+  for (const pg of pages) {
+    if (pg.id === c.pageId) continue;
+    const text = prop(pg.properties, '問題文', 'rich_text');
+    const hn = prop(pg.properties, '穴番号', 'number');
+    // その穴自身の位置は 〔_〕 になっているので差分側を変換
+    const om = oldMid.replaceAll(`〔●${hn}〕`, '〔_〕');
+    const nm = newMid.replaceAll(`〔●${hn}〕`, '〔_〕');
+    if (!om || !text.includes(om)) continue;
+    const fixed = text.replaceAll(om, nm);
+    await notion('/v1/pages/' + pg.id, {
+      properties: { '問題文': { rich_text: [{ text: { content: fixed.slice(0, 2000) } }] } },
+    }, 'PATCH');
+    n++;
+    // 読み込み済みカードにも反映
+    const lc = cards.find(x => x.pageId === pg.id);
+    if (lc) lc.question = fixed;
+  }
+  if (n) saveState();
+  return n;
 }
 
 // ── コンフェッティ ──
