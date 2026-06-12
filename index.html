@@ -181,7 +181,7 @@
 
 <script>
 'use strict';
-const APP_VER = 'v14';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v15';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 const DEFAULTS = {
   proxy: 'https://notion-proxy.djsa9pro.workers.dev',
@@ -222,6 +222,7 @@ function toast(msg, color = 'bg-slate-700') {
 
 // ── タブ ──
 function showTab(name) {
+  if (typeof removeAnsPop === 'function' && name !== 'quiz') removeAnsPop();
   for (const t of ['quiz', 'stats', 'range', 'settings']) {
     $('view-' + t).classList.toggle('hidden', t !== name);
   }
@@ -388,6 +389,7 @@ async function loadCards(force) {
 function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
 function renderCard() {
+  removeAnsPop();
   const c = cards[queueIdx];
   if (!c) { showDone(); return; }
   $('qSection').textContent = '問題' + c.section;
@@ -425,38 +427,69 @@ function updateProgress() {
   $('streak').textContent = streak;
 }
 
+function removeAnsPop() {
+  const p = $('ansPop');
+  if (p) p.remove();
+  if (removeAnsPop._cleanup) { removeAnsPop._cleanup(); removeAnsPop._cleanup = null; }
+}
+
 function reveal() {
   const c = cards[queueIdx];
   if (!c) return;
-  // 穴の位置はそのまま、真上に吹き出しで正解を表示（本文を動かさない）
   const el = $('qText').querySelector('.blink') || $('qText').querySelector('.hole, .hole-wrong');
   if (el) {
     el.classList.remove('blink');
-    el.style.position = 'relative';
-    const pop = document.createElement('span');
+    removeAnsPop();
+    // body直下に固定配置（スクロール領域にクリップされず、必ず画面内に収まる）
+    const pop = document.createElement('div');
     pop.id = 'ansPop';
     pop.className = 'pop';
     pop.textContent = c.answer;
     pop.style.cssText =
-      'position:absolute;bottom:calc(100% + 8px);left:0;z-index:30;' +
-      'background:#059669;color:#fff;font-weight:700;font-size:16px;line-height:1.5;' +
-      'padding:8px 12px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.25);' +
-      'width:max-content;max-width:min(78vw,400px);white-space:normal;';
-    const tail = document.createElement('span');
-    tail.style.cssText =
-      'position:absolute;top:100%;left:14px;border:7px solid transparent;border-top-color:#059669;';
+      'position:fixed;z-index:60;background:#059669;color:#fff;font-weight:700;' +
+      'font-size:16px;line-height:1.5;padding:8px 12px;border-radius:12px;' +
+      'box-shadow:0 6px 18px rgba(0,0,0,.3);max-width:calc(100vw - 24px);' +
+      'width:max-content;white-space:normal;visibility:hidden;';
+    const tail = document.createElement('div');
+    tail.id = 'ansPopTail';
+    tail.style.cssText = 'position:absolute;border:7px solid transparent;';
     pop.appendChild(tail);
-    el.appendChild(pop);
-    // 画面右にはみ出す場合は左へずらす
-    requestAnimationFrame(() => {
-      const r = pop.getBoundingClientRect();
-      const over = r.right - (document.documentElement.clientWidth - 10);
-      if (over > 0) {
-        pop.style.left = (-over) + 'px';
-        tail.style.left = (14 + over) + 'px';
+    document.body.appendChild(pop);
+
+    const place = () => {
+      const r = el.getBoundingClientRect();
+      const vw = document.documentElement.clientWidth;
+      const pw = pop.offsetWidth, ph = pop.offsetHeight;
+      // 横: 穴の左端に合わせ、画面内にクランプ
+      let left = Math.min(Math.max(r.left, 12), vw - pw - 12);
+      // 縦: 穴の上。入らなければ下。
+      const headerH = 70;
+      let top = r.top - ph - 10;
+      let below = false;
+      if (top < headerH) { top = r.bottom + 10; below = true; }
+      pop.style.left = left + 'px';
+      pop.style.top = top + 'px';
+      // しっぽを穴の中央に向ける
+      const tx = Math.min(Math.max(r.left + r.width / 2 - left - 7, 8), pw - 22);
+      tail.style.left = tx + 'px';
+      if (below) {
+        tail.style.top = '-14px'; tail.style.bottom = '';
+        tail.style.borderBottomColor = pop.style.background || '#059669';
+        tail.style.borderTopColor = 'transparent';
+      } else {
+        tail.style.bottom = '-14px'; tail.style.top = '';
+        tail.style.borderTopColor = pop.style.background || '#059669';
+        tail.style.borderBottomColor = 'transparent';
       }
-    });
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      pop.style.visibility = 'visible';
+    };
+    requestAnimationFrame(place);
+    el.scrollIntoView({ block: 'center', behavior: 'instant' });
+    requestAnimationFrame(place);
+    // スクロールに追従
+    const sc = $('qScroll');
+    sc.addEventListener('scroll', place, { passive: true });
+    removeAnsPop._cleanup = () => sc.removeEventListener('scroll', place);
   }
   $('revealBtn').classList.add('hidden');
   $('judgeBtns').classList.remove('hidden');
@@ -576,8 +609,11 @@ function judge(ok) {
     const pop = $('ansPop');
     if (pop) {
       pop.style.background = '#dc2626';
-      const tail = pop.querySelector('span');
-      if (tail) tail.style.borderTopColor = '#dc2626';
+      const tail = $('ansPopTail');
+      if (tail) {
+        if (tail.style.borderTopColor !== 'transparent' && tail.style.borderTopColor) tail.style.borderTopColor = '#dc2626';
+        if (tail.style.borderBottomColor !== 'transparent' && tail.style.borderBottomColor) tail.style.borderBottomColor = '#dc2626';
+      }
     }
   }
   queueIdx++;
