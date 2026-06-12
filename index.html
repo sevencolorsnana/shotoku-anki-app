@@ -17,8 +17,8 @@
   .dark .hole { color: #a5b4fc; background: rgba(99,102,241,.2); }
   .hole-wrong { color: #dc2626; font-weight: 700; background: rgba(239,68,68,.12); border-radius: 4px; padding: 0 2px; }
   .dark .hole-wrong { color: #fca5a5; background: rgba(239,68,68,.22); }
-  .mask { color: #94a3b8; }
-  .mask-wrong { color: #ef4444; font-weight: 700; }
+  .mask { color: #94a3b8; padding: 0 2px; }
+  .mask-wrong { color: #ef4444; font-weight: 700; padding: 0 2px; }
   .answer-reveal { color: #059669; font-weight: 700; }
   .dark .answer-reveal { color: #34d399; }
   .confetti-piece { position: fixed; width: 9px; height: 14px; top: -20px; z-index: 90; pointer-events: none; animation: fall linear forwards; }
@@ -181,7 +181,7 @@
 
 <script>
 'use strict';
-const APP_VER = 'v15';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v16';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 const DEFAULTS = {
   proxy: 'https://notion-proxy.djsa9pro.workers.dev',
@@ -399,12 +399,13 @@ function renderCard() {
   $('qHeading').textContent = c.heading;
   $('wrongBadge').classList.toggle('hidden', !wrongMap[c.id]);
 
+  // 出題穴と伏せ字を同じ3文字幅に統一（問題が進んでも本文がズレない）
   const curCls = wrongMap[c.id] ? 'hole-wrong' : 'hole';
   $('qText').innerHTML = esc(c.question)
-    .replace(/〔_〕/g, `<span class="${curCls} blink">〔　？　〕</span>`)
+    .replace(/〔_〕/g, `<span class="${curCls} blink">〔？〕</span>`)
     .replace(/〔●(\d+)〕/g, (m, n) => {
       const oid = c.section + '_' + String(n).padStart(3, '0');
-      return `<span class="${wrongMap[oid] ? 'mask-wrong' : 'mask'}">●</span>`;
+      return `<span class="${wrongMap[oid] ? 'mask-wrong' : 'mask'}">〔●〕</span>`;
     });
   $('qCard').classList.remove('card-in');
   void $('qCard').offsetWidth;
