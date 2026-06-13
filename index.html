@@ -201,9 +201,6 @@
       <label class="block">データベースID
         <input id="setDb" type="text" class="mt-1 w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
       </label>
-      <label class="flex items-center justify-between gap-3">高正答率の穴をスキップ<span class="text-[11px] text-slate-400">(90%以上・3回以上)</span>
-        <input id="setSkip" type="checkbox" class="w-5 h-5 accent-indigo-600">
-      </label>
       <label class="flex items-center justify-between">終了後に不正解を即時復習
         <input id="setRetry" type="checkbox" class="w-5 h-5 accent-indigo-600" checked>
       </label>
@@ -281,7 +278,7 @@
 
 <script>
 'use strict';
-const APP_VER = 'v22';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v23';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 // 各題の大見出し〔n〕の構成（穴の有無に関わらず存在する見出し番号）
 const SECTION_STRUCT = {"1-1":["1","2","3","4","5"],"1-2":["1","2","3","4"],"1-3":["1","2","3","4","5","6"],"2-1":["1","2","3","4","5","6","7","8"],"2-2":["1","2"],"2-3":["1","2","3","4","5","6"],"2-4":["1","2","3","4","5","6","7","8","9","10"],"2-5":["1","2","3","4","5","6","7"],"2-6":["1","2","3","4","5","6"],"2-7":["1","2","3"],"2-8":["1","2","3"],"2-9":["1","2","3","4","5"],"2-10":["1","2"],"2-11":["1","2"],"2-12":["1","2","3"],"2-13":["1","2","3","4","5"],"2-14":["1","2","3","4","5"],"2-15":["1","2","3","4"],"2-16":["1","2"],"2-17":["1","2"],"2-18":["1","2","3","4"],"2-19":["1","2","3","4"],"2-20":["1","2","3"],"2-21":["1","2","3","4"],"2-22":["1","2","3","4","5","6"],"2-23":["1","2","3"],"2-24":["1","2","3","4","5"],"2-25":["1","2","3","4"],"2-26":["1","2"],"2-27":["1","2","3","4"],"2-28":["1","2"],"3-1":["1","2","3","4","5","6","7","8","9"],"3-2":["1","2","3","4","5","6","7","8"],"3-3":["1","2","3","4","5","6","7","8","9"],"3-4":["1","2","3","4","5"],"3-5":["1","2","3","4","5"],"3-6":["1","2","3","4"],"3-7":["1","2","3","4"],"3-8":["1","2","3","4"],"4-1":["1","2","3","4","5","6","7","8","9"],"4-2":["1","2","3","4","5","6","7","8","9","10"],"4-3":["1","2","3"],"5-1":["1","2","3","4"],"5-2":["1","2","3"],"5-3":["1","2","3","4","5"],"5-4":["1","2","3","4","5","6","7","8"],"5-5":["1","2"],"5-6":["1","2"],"6-1":["1","2","3","4","5","6"],"6-2":["1","2","3","4","5","6"],"6-3":["1","2","3","4","5"],"6-4":["1","2"],"6-5":["1","2","3","4"],"6-6":["1","2","3","4"],"6-7":["1","2","3","4","5"],"6-8":["1","2","3","4"],"6-9":["1","2","3","4","5","6","7","8","9","10","11","12","13"],"7-1":["1","2","3","4"],"7-2":["1","2","3","4"],"7-3":["1","2","3","4","5","6","7","8","9"],"7-4":["1","2","3","4","5","6"],"7-5":["1","2","3","4","5","6","7","8"],"7-6":["1","2","3","4","5","6","7"],"8-1":["1","2","3"],"8-2":["1","2","3","4","5","6"],"9-1":["1","2","3","4","5","6"],"9-2":["1","2","3","4","5","6","7"],"9-3":["1","2","3","4","5","6","7"],"9-4":["1","2","3","4","5"],"10-1":["1","2","3","4"],"10-2":["1","2","3","4"]};
@@ -305,7 +302,6 @@ function saveSettings() {
   cfg.token = $('setToken').value.trim();
   cfg.proxy = $('setProxy').value.trim().replace(/\/$/, '');
   cfg.db = $('setDb').value.trim();
-  cfg.skip = $('setSkip').checked;
   cfg.retry = $('setRetry').checked;
   cfg.dark = $('setDark').checked;
   localStorage.setItem('cfg', JSON.stringify(cfg));
@@ -315,7 +311,7 @@ function saveSettings() {
 }
 function fillSettings() {
   $('setToken').value = cfg.token; $('setProxy').value = cfg.proxy; $('setDb').value = cfg.db;
-  $('setSkip').checked = cfg.skip; $('setRetry').checked = cfg.retry; $('setDark').checked = cfg.dark;
+  $('setRetry').checked = cfg.retry; $('setDark').checked = cfg.dark;
 }
 
 // ── トースト ──
@@ -446,21 +442,7 @@ async function loadCards(force) {
     return;
   }
   try {
-    let results = [], cursor, page = 0;
-    do {
-      const body = {
-        page_size: 100,
-        filter: { property: '次回出題日', date: { on_or_before: todayStr() } },
-        sorts: [{ property: '穴ID', direction: 'ascending' }],
-      };
-      if (cursor) body.start_cursor = cursor;
-      const j = await notion(`/v1/databases/${cfg.db}/query`, body);
-      results = results.concat(j.results);
-      cursor = j.has_more ? j.next_cursor : undefined;
-      msg.textContent = `出題対象を取得中... ${results.length}件`;
-    } while (cursor && ++page < 80);
-
-    let all = results.map(r => ({
+    const mapCard = r => ({
       pageId: r.id,
       id: prop(r.properties, '穴ID', 'title'),
       section: prop(r.properties, '題番号', 'rich_text'),
@@ -474,10 +456,46 @@ async function loadCards(force) {
       ef: prop(r.properties, '難易度係数', 'number') || 2.5,
       correct: prop(r.properties, '正答回数', 'number'),
       total: prop(r.properties, '出題回数', 'number'),
-    }));
+    });
+    async function queryAll(filter, label) {
+      let res = [], cursor, page = 0;
+      do {
+        const body = { page_size: 100, sorts: [{ property: '穴ID', direction: 'ascending' }] };
+        if (filter) body.filter = filter;
+        if (cursor) body.start_cursor = cursor;
+        const j = await notion(`/v1/databases/${cfg.db}/query`, body);
+        res = res.concat(j.results);
+        cursor = j.has_more ? j.next_cursor : undefined;
+        msg.textContent = `${label} ${res.length}件`;
+      } while (cursor && ++page < 200);
+      return res;
+    }
+
+    // 出題する「題」を決める。題が対象になったら、その題の全穴を出題する。
     const sel = selectedSections();
-    if (sel) all = all.filter(c => sel.includes(c.section));
-    if (cfg.skip) all = all.filter(c => !(c.total >= 3 && c.correct / c.total >= 0.9));
+    let targetSections;
+    if (sel) {
+      // 範囲を選んでいる場合: その題を完全学習（締切に関係なく全穴）
+      targetSections = sel.slice();
+    } else {
+      // 全範囲: 今日が締切の穴を持つ「題」だけを対象にし、その題は全穴を出す
+      const due = await queryAll(
+        { property: '次回出題日', date: { on_or_before: todayStr() } }, '締切の穴を確認中...');
+      targetSections = [...new Set(due.map(r => prop(r.properties, '題番号', 'rich_text')))];
+    }
+    if (targetSections.length === 0) {
+      cards = []; baseCards = [];
+      queueIdx = 0; wrongCards = []; sessionResults = {}; streak = 0;
+      scoped = false; inWrongReview = false; showSecPanels = true;
+      undoStack = []; updateUndoBtn(); saveState();
+      $('loadingBox').classList.add('hidden'); showDone();
+      return;
+    }
+
+    // 対象題の全穴を取得（題番号のORフィルタ）
+    const orFilter = { or: targetSections.map(s => ({ property: '題番号', rich_text: { equals: s } })) };
+    const results = await queryAll(orFilter, '題の全穴を取得中...');
+    let all = results.map(mapCard).filter(c => targetSections.includes(c.section));
 
     const bySec = {};
     for (const c of all) (bySec[c.section] = bySec[c.section] || []).push(c);
