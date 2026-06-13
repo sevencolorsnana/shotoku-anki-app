@@ -96,7 +96,7 @@
       <div class="flex flex-col gap-3 w-full max-w-[300px]">
         <button id="secReviewWrong" onclick="reviewSectionWrong()" class="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl font-bold shadow-lg pressable">😤 間違えた箇所だけ復習</button>
         <button onclick="reviewSectionAll()" class="px-6 py-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-2xl font-bold shadow-lg pressable">🔁 この題をすべて復習</button>
-        <button onclick="continueNextSection()" class="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg pressable">➡️ 次の題へ進む</button>
+        <button id="continueBtn" onclick="continueNextSection()" class="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg pressable">➡️ 次の題へ進む</button>
       </div>
     </div>
 
@@ -154,7 +154,10 @@
       <div class="text-6xl pop">🏛️</div>
       <div class="text-xl font-bold">柱の復習完了！</div>
       <div id="pillarDoneStats" class="text-sm text-slate-500"></div>
-      <button onclick="pillarBackStart()" class="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg pressable">↩ 戻る</button>
+      <div class="flex flex-col gap-3 w-full max-w-[300px]">
+        <button onclick="pillarRepeat()" class="px-6 py-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-2xl font-bold shadow-lg pressable">🔁 もう一度同じ範囲を復習</button>
+        <button onclick="pillarBackStart()" class="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg pressable">↩ 戻る</button>
+      </div>
     </div>
   </main>
 
@@ -269,7 +272,7 @@
 
 <script>
 'use strict';
-const APP_VER = 'v18';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v19';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 // 各題の大見出し〔n〕の構成（穴の有無に関わらず存在する見出し番号）
 const SECTION_STRUCT = {"1-1":["1","2","3","4","5"],"1-2":["1","2","3","4"],"1-3":["1","2","3","4","5","6"],"2-1":["1","2","3","4","5","6","7","8"],"2-2":["1","2"],"2-3":["1","2","3","4","5","6"],"2-4":["1","2","3","4","5","6","7","8","9","10"],"2-5":["1","2","3","4","5","6","7"],"2-6":["1","2","3","4","5","6"],"2-7":["1","2","3"],"2-8":["1","2","3"],"2-9":["1","2","3","4","5"],"2-10":["1","2"],"2-11":["1","2"],"2-12":["1","2","3"],"2-13":["1","2","3","4","5"],"2-14":["1","2","3","4","5"],"2-15":["1","2","3","4"],"2-16":["1","2"],"2-17":["1","2"],"2-18":["1","2","3","4"],"2-19":["1","2","3","4"],"2-20":["1","2","3"],"2-21":["1","2","3","4"],"2-22":["1","2","3","4","5","6"],"2-23":["1","2","3"],"2-24":["1","2","3","4","5"],"2-25":["1","2","3","4"],"2-26":["1","2"],"2-27":["1","2","3","4"],"2-28":["1","2"],"3-1":["1","2","3","4","5","6","7","8","9"],"3-2":["1","2","3","4","5","6","7","8"],"3-3":["1","2","3","4","5","6","7","8","9"],"3-4":["1","2","3","4","5"],"3-5":["1","2","3","4","5"],"3-6":["1","2","3","4"],"3-7":["1","2","3","4"],"3-8":["1","2","3","4"],"4-1":["1","2","3","4","5","6","7","8","9"],"4-2":["1","2","3","4","5","6","7","8","9","10"],"4-3":["1","2","3"],"5-1":["1","2","3","4"],"5-2":["1","2","3"],"5-3":["1","2","3","4","5"],"5-4":["1","2","3","4","5","6","7","8"],"5-5":["1","2"],"5-6":["1","2"],"6-1":["1","2","3","4","5","6"],"6-2":["1","2","3","4","5","6"],"6-3":["1","2","3","4","5"],"6-4":["1","2"],"6-5":["1","2","3","4"],"6-6":["1","2","3","4"],"6-7":["1","2","3","4","5"],"6-8":["1","2","3","4"],"6-9":["1","2","3","4","5","6","7","8","9","10","11","12","13"],"7-1":["1","2","3","4"],"7-2":["1","2","3","4"],"7-3":["1","2","3","4","5","6","7","8","9"],"7-4":["1","2","3","4","5","6"],"7-5":["1","2","3","4","5","6","7","8"],"7-6":["1","2","3","4","5","6","7"],"8-1":["1","2","3"],"8-2":["1","2","3","4","5","6"],"9-1":["1","2","3","4","5","6"],"9-2":["1","2","3","4","5","6","7"],"9-3":["1","2","3","4","5","6","7"],"9-4":["1","2","3","4","5"],"10-1":["1","2","3","4"],"10-2":["1","2","3","4"]};
@@ -368,6 +371,7 @@ let history = JSON.parse(localStorage.getItem('history') || '{}'); // section ->
 let streak = 0;
 let inWrongReview = false;
 let lastAnsweredSection = null;
+let showSecPanels = true;   // 題境界で完了パネルを出すか（通常・全復習はtrue、不正解のみ復習はfalse）
 // スコープ復習（題単位の復習）。メインキューを退避して一時的に差し替える
 let scoped = false, scopedReturn = null, scopedSaved = null;
 
@@ -397,7 +401,7 @@ function loadState() {
     cards = s.cards; queueIdx = s.queueIdx; sessionResults = s.sessionResults || {};
     baseCards = s.baseCards && s.baseCards.length ? s.baseCards : cards.slice();
     wrongCards = baseCards.filter(c => (s.wrongIds || []).includes(c.id));
-    scoped = false; inWrongReview = false; streak = s.streak || 0;
+    scoped = false; inWrongReview = false; showSecPanels = true; streak = s.streak || 0;
     return cards.length > 0;
   } catch (e) { return false; }
 }
@@ -478,7 +482,7 @@ async function loadCards(force) {
     }
     baseCards = cards.slice();
     queueIdx = 0; wrongCards = []; sessionResults = {}; streak = 0;
-    scoped = false; inWrongReview = false;
+    scoped = false; inWrongReview = false; showSecPanels = true;
     undoStack = []; updateUndoBtn();
     saveState();
     $('loadingBox').classList.add('hidden');
@@ -763,10 +767,12 @@ function advance() {
     renderCard();
     return;
   }
-  if (queueIdx >= cards.length) { showDone(); return; }
-  // 通常モードのみ題境界で完了パネル（復習モードでは素通り）
-  const nextSec = cards[queueIdx].section;
-  if (!inWrongReview && nextSec !== lastAnsweredSection) { showSectionDone(lastAnsweredSection); return; }
+  // 題が終わったか（次が別題 or キュー終端）。最後の題でもパネルを出す
+  const ended = queueIdx >= cards.length;
+  const nextSec = ended ? null : cards[queueIdx].section;
+  const sectionFinished = ended || nextSec !== lastAnsweredSection;
+  if (showSecPanels && sectionFinished && lastAnsweredSection) { showSectionDone(lastAnsweredSection); return; }
+  if (ended) { showDone(); return; }
   renderCard();
 }
 
@@ -780,6 +786,7 @@ function showSectionDone(sec) {
   $('secDoneStats').textContent =
     `正解 ${st.ok} ／ 不正解 ${st.ng}` + (st.ok + st.ng ? `（正答率 ${Math.round(st.ok / (st.ok + st.ng) * 100)}%）` : '');
   $('secReviewWrong').classList.toggle('hidden', wrong.length === 0);
+  $('continueBtn').textContent = (queueIdx >= cards.length) ? '✅ 完了画面へ' : '➡️ 次の題へ進む';
   $('quizBox').classList.add('hidden'); $('quizBox').classList.remove('flex');
   $('secDoneBox').classList.remove('hidden'); $('secDoneBox').classList.add('flex');
   $('footerBar').classList.add('hidden');
@@ -877,7 +884,7 @@ function showDone() {
 function startWrongReview() {
   const list = baseCards.filter(c => wrongMap[c.id]);
   if (list.length === 0) { toast('不正解はありません 👏', 'bg-emerald-600'); return; }
-  inWrongReview = true; scoped = false;
+  inWrongReview = true; scoped = false; showSecPanels = false;
   cards = list.slice(); baseCards = cards.slice(); queueIdx = 0;
   wrongCards = []; sessionResults = {};
   undoStack = []; updateUndoBtn();
@@ -892,7 +899,7 @@ function startWrongReview() {
 // 今日の分を最初から全部やり直す（練習。Notionには書き込まない）
 function reviewAllToday() {
   if (baseCards.length === 0) { toast('対象がありません', 'bg-slate-600'); return; }
-  inWrongReview = true; scoped = false;
+  inWrongReview = true; scoped = false; showSecPanels = true;
   cards = baseCards.slice(); queueIdx = 0;
   sessionResults = {};
   undoStack = []; updateUndoBtn();
@@ -1274,6 +1281,20 @@ function pillarDone() {
   const t = pillarSession.ok + pillarSession.ng;
   $('pillarDoneStats').textContent = `言えた ${pillarSession.ok} ／ 言えなかった ${pillarSession.ng}` +
     (t ? `（${Math.round(pillarSession.ok / t * 100)}%）` : '');
+}
+function pillarRepeat() {
+  if (pillarQueue.length === 0) { renderPillarStart(); return; }
+  // 直前と同じ範囲をシャッフルし直して再開
+  for (let i = pillarQueue.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pillarQueue[i], pillarQueue[j]] = [pillarQueue[j], pillarQueue[i]];
+  }
+  pillarIdx = 0; pillarSession = { ok: 0, ng: 0 };
+  $('pillarStart').classList.add('hidden'); $('pillarStart').classList.remove('flex');
+  $('pillarDone').classList.add('hidden'); $('pillarDone').classList.remove('flex');
+  $('pillarCard').classList.remove('hidden'); $('pillarCard').classList.add('flex');
+  toast('🔁 もう一度復習', 'bg-violet-500');
+  pillarRender();
 }
 function pillarBackStart() { renderPillarStart(); }
 
