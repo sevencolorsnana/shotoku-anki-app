@@ -49,7 +49,8 @@
         </div>
       </div>
       <nav class="flex gap-1 text-[13px]">
-        <button data-tab="quiz" class="tabbtn px-2.5 py-1.5 rounded-lg pressable">出題</button>
+        <button data-tab="quiz" class="tabbtn px-2.5 py-1.5 rounded-lg pressable">穴</button>
+        <button data-tab="pillar" class="tabbtn px-2.5 py-1.5 rounded-lg pressable">柱</button>
         <button data-tab="stats" class="tabbtn px-2.5 py-1.5 rounded-lg pressable">分析</button>
         <button data-tab="range" class="tabbtn px-2.5 py-1.5 rounded-lg pressable">範囲</button>
         <button data-tab="settings" class="tabbtn px-2.5 py-1.5 rounded-lg pressable">⚙</button>
@@ -108,6 +109,52 @@
         <button onclick="reviewAllToday()" class="px-6 py-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-2xl font-bold shadow-lg pressable">🔁 今日の分を再度復習</button>
         <button onclick="loadCards(true)" class="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg pressable">🔄 再取得</button>
       </div>
+    </div>
+  </main>
+
+  <!-- 柱（構成）想起タブ -->
+  <main id="view-pillar" class="hidden flex-1 px-3 pb-28 pt-2 flex flex-col">
+    <!-- 開始画面 -->
+    <div id="pillarStart" class="flex-1 flex flex-col items-center justify-center gap-4 text-center min-h-[55vh]">
+      <div class="text-5xl">🏛️</div>
+      <div class="text-lg font-bold">柱（構成）想起モード</div>
+      <div class="text-sm text-slate-500 max-w-[300px]">題番号だけを見て、<b>題名</b>と<b>柱〔1〕〔2〕…</b>を順番に言えるか練習します。柱を立てる力を鍛えるモードです。</div>
+      <div id="pillarDueInfo" class="text-xs text-slate-400"></div>
+      <div class="flex flex-col gap-3 w-full max-w-[300px]">
+        <button onclick="startPillar(false)" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl font-bold shadow-lg pressable">▶️ 今日の復習を開始</button>
+        <button onclick="startPillar(true)" class="px-6 py-3 bg-slate-200 dark:bg-slate-700 rounded-2xl font-bold pressable">📚 範囲内すべてを練習</button>
+      </div>
+    </div>
+    <!-- ドリルカード -->
+    <div id="pillarCard" class="hidden flex-1 flex-col">
+      <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-lg ring-1 ring-slate-200 dark:ring-slate-800 p-4 flex-1 flex flex-col">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-[11px] text-slate-400">進捗 <span id="pillarProg">0/0</span></span>
+          <span id="pillarDueBadge" class="text-[11px] font-bold bg-rose-500 text-white px-2 py-0.5 rounded-full"></span>
+        </div>
+        <div class="flex-1 flex flex-col items-center justify-center text-center gap-3" id="pillarQ">
+          <div class="text-3xl font-extrabold text-indigo-600 dark:text-indigo-400" id="pillarSecNo"></div>
+          <div class="text-sm text-slate-500">この題の<b>題名</b>と<b>柱（大見出し）</b>を順番にすべて言ってください</div>
+        </div>
+        <div id="pillarAnswer" class="hidden overflow-y-auto max-h-[calc(100dvh-330px)] pop">
+          <div class="text-lg font-bold mb-2 text-center" id="pillarTitle"></div>
+          <ol id="pillarList" class="space-y-1.5"></ol>
+        </div>
+      </div>
+      <div class="mt-3">
+        <button id="pillarReveal" onclick="pillarRevealAns()" class="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl font-bold text-base shadow-lg pressable">👀 答えを表示</button>
+        <div id="pillarJudge" class="hidden grid grid-cols-2 gap-3">
+          <button onclick="pillarGrade(false)" class="py-3.5 bg-gradient-to-r from-rose-500 to-red-500 text-white rounded-2xl font-bold text-base shadow-lg pressable">✗ 言えなかった</button>
+          <button onclick="pillarGrade(true)" class="py-3.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-2xl font-bold text-base shadow-lg pressable">✓ 言えた</button>
+        </div>
+      </div>
+    </div>
+    <!-- 完了画面 -->
+    <div id="pillarDone" class="hidden flex-1 flex-col items-center justify-center gap-4 text-center min-h-[55vh]">
+      <div class="text-6xl pop">🏛️</div>
+      <div class="text-xl font-bold">柱の復習完了！</div>
+      <div id="pillarDoneStats" class="text-sm text-slate-500"></div>
+      <button onclick="pillarBackStart()" class="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg pressable">↩ 戻る</button>
     </div>
   </main>
 
@@ -222,11 +269,13 @@
 
 <script>
 'use strict';
-const APP_VER = 'v17';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v18';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 // 各題の大見出し〔n〕の構成（穴の有無に関わらず存在する見出し番号）
 const SECTION_STRUCT = {"1-1":["1","2","3","4","5"],"1-2":["1","2","3","4"],"1-3":["1","2","3","4","5","6"],"2-1":["1","2","3","4","5","6","7","8"],"2-2":["1","2"],"2-3":["1","2","3","4","5","6"],"2-4":["1","2","3","4","5","6","7","8","9","10"],"2-5":["1","2","3","4","5","6","7"],"2-6":["1","2","3","4","5","6"],"2-7":["1","2","3"],"2-8":["1","2","3"],"2-9":["1","2","3","4","5"],"2-10":["1","2"],"2-11":["1","2"],"2-12":["1","2","3"],"2-13":["1","2","3","4","5"],"2-14":["1","2","3","4","5"],"2-15":["1","2","3","4"],"2-16":["1","2"],"2-17":["1","2"],"2-18":["1","2","3","4"],"2-19":["1","2","3","4"],"2-20":["1","2","3"],"2-21":["1","2","3","4"],"2-22":["1","2","3","4","5","6"],"2-23":["1","2","3"],"2-24":["1","2","3","4","5"],"2-25":["1","2","3","4"],"2-26":["1","2"],"2-27":["1","2","3","4"],"2-28":["1","2"],"3-1":["1","2","3","4","5","6","7","8","9"],"3-2":["1","2","3","4","5","6","7","8"],"3-3":["1","2","3","4","5","6","7","8","9"],"3-4":["1","2","3","4","5"],"3-5":["1","2","3","4","5"],"3-6":["1","2","3","4"],"3-7":["1","2","3","4"],"3-8":["1","2","3","4"],"4-1":["1","2","3","4","5","6","7","8","9"],"4-2":["1","2","3","4","5","6","7","8","9","10"],"4-3":["1","2","3"],"5-1":["1","2","3","4"],"5-2":["1","2","3"],"5-3":["1","2","3","4","5"],"5-4":["1","2","3","4","5","6","7","8"],"5-5":["1","2"],"5-6":["1","2"],"6-1":["1","2","3","4","5","6"],"6-2":["1","2","3","4","5","6"],"6-3":["1","2","3","4","5"],"6-4":["1","2"],"6-5":["1","2","3","4"],"6-6":["1","2","3","4"],"6-7":["1","2","3","4","5"],"6-8":["1","2","3","4"],"6-9":["1","2","3","4","5","6","7","8","9","10","11","12","13"],"7-1":["1","2","3","4"],"7-2":["1","2","3","4"],"7-3":["1","2","3","4","5","6","7","8","9"],"7-4":["1","2","3","4","5","6"],"7-5":["1","2","3","4","5","6","7","8"],"7-6":["1","2","3","4","5","6","7"],"8-1":["1","2","3"],"8-2":["1","2","3","4","5","6"],"9-1":["1","2","3","4","5","6"],"9-2":["1","2","3","4","5","6","7"],"9-3":["1","2","3","4","5","6","7"],"9-4":["1","2","3","4","5"],"10-1":["1","2","3","4"],"10-2":["1","2","3","4"]};
 const headNum = c => { const m = (c && c.heading || '').match(/〔\s*(\d+)\s*〕/); return m ? m[1] : '-'; };
+// 各題の柱（大見出し）名称。柱想起モードで使用
+const SECTION_HEADINGS = {"1-1":[["1","納税義務者"],["2","課税所得の範囲"],["3","納税義務者の区分が異動した場合の課税所得の範囲"],["4","課税方法"],["5","復興特別所得税"]],"1-2":[["1","納税義務者"],["2","課税所得の範囲"],["3","課税方法"],["4","復興特別所得税"]],"1-3":[["1","納税地"],["2","納税地の特例"],["3","源泉徴収に係る所得税の納税地"],["4","納税地の指定"],["5","納税地の指定処分の取消しがあった場合"],["6","復興特別所得税の納税地"]],"2-1":[["1","利子所得に関係するもの"],["2","配当所得に関係するもの"],["3","給与所得に関係するもの"],["4","退職所得に関係するもの"],["5","山林所得に関係するもの"],["6","譲渡所得に関係するもの"],["7","一時所得に関係するもの"],["8","雑所得に関係するもの"]],"2-2":[["1","取得した保険金及び損害賠償金等の取扱い"],["2","支出した損害賠償金等の取扱い"]],"2-3":[["1","総合課税"],["2","非課税"],["3","公的年金等"],["4","公的年金等以外の年金"],["5","源泉徴収"],["6","確定所得申告を要しない場合"]],"2-4":[["1","利子所得"],["2","配当所得"],["3","不動産所得"],["4","事業所得"],["5","給与所得"],["6","退職所得"],["7","山林所得"],["8","譲渡所得"],["9","一時所得"],["10","雑所得"]],"2-5":[["1","概要"],["2","給与所得"],["3","非課税"],["4","総合課税"],["5","所得金額調整控除"],["6","源泉徴収"],["7","確定所得申告を要しない場合"]],"2-6":[["1","概要"],["2","退職所得"],["3","非課税"],["4","申告分離課税"],["5","源泉徴収"],["6","確定所得申告を要しない場合"]],"2-7":[["1","不動産所得となる権利金"],["2","譲渡所得となる権利金"],["3","事業所得又は雑所得となる権利金"]],"2-8":[["1","収入金額の通則"],["2","必要経費の通則"],["3","取得費の通則"]],"2-9":[["1","棚卸資産等に関する別段の定め"],["2","譲渡所得の基因となる資産等に関する別段の定め"],["3","国庫補助金等に関する別段の定め"],["4","発行法人から与えられた株式を取得する権利の譲渡による収入金額"],["5","債務免除を受けた場合の経済的利益の総収入金額不算入"]],"2-10":[["1","贈与等をした者の取扱い"],["2","贈与等を受けた者の取扱い"]],"2-11":[["1","小規模事業者等の現金基準"],["2","無記名の公社債の利子等の現金基準"]],"2-12":[["1","内容"],["2","申告要件"],["3","取得資産の取得価額等"]],"2-13":[["1","特別控除"],["2","長期譲渡所得の税額軽減"],["3","特定の居住用財産の買換えの場合の長期譲渡所得の課税の特例"],["4","申告要件"],["5","居住用財産の譲渡"]],"2-14":[["1","利子所得の課税関係"],["2","配当所得の課税関係"],["3","損益通算"],["4","申告不要"],["5","損益通算"]],"2-15":[["1","総合課税"],["2","一般株式分離課税"],["3","上場株式分離課税"],["4","上場株式等に係る譲渡損失の損益通算及び繰越控除"]],"2-16":[["1","特定口座制度"],["2","特定管理口座制度"]],"2-17":[["1","非課税口座制度"],["2","未成年者口座制度"]],"2-18":[["1","内容"],["2","手続"],["3","適用除外"],["4","取得した株式を譲渡した場合"]],"2-19":[["1","特定株式又は設立特定株式の取得に要した金額の控除"],["2","特定株式又は設立特定株式の繰戻しによる還付"],["3","特定株式に係る譲渡損失の繰越控除等"],["4","特定新規中小会社が発行した株式を取得した場合の課税の特例"]],"2-20":[["1","総合課税"],["2","申告分離課税"],["3","先物取引の差金等決済に係る損失の繰越控除"]],"2-21":[["1","必要経費不算入"],["2","隠蔽仮装等に係る簿外経費の必要経費不算入"],["3","支出した金額不算入"],["4","外国税額の必要経費不算入等"]],"2-22":[["1","棚卸資産"],["2","事業用固定資産・繰延資産"],["3","山林"],["4","事業的規模以外の業務用資産"],["5","生活に通常必要でない資産"],["6","生活に通常必要な資産等"]],"2-23":[["1","事業上の債権が回収不能となった場合"],["2","事業上の債権以外の債権が回収不能となった場合"],["3","更正の請求"]],"2-24":[["1","貸倒引当金繰入"],["2","貸倒引当金戻入"],["3","申告要件"],["4","繰入限度額"],["5","用語の意義"]],"2-25":[["1","対価の必要経費不算入等"],["2","青色事業専従者給与の必要経費算入"],["3","事業専従者控除額の必要経費算入"],["4","青色事業専従者又は事業専従者の判定"]],"2-26":[["1","内容"],["2","申告要件"]],"2-27":[["1","取得費の原則"],["2","概算取得費控除"],["3","贈与等により取得した資産の取得費等"],["4","相続税額の取得費加算"]],"2-28":[["1","原則"],["2","特例"]],"3-1":[["1","総所得金額"],["2","山林所得金額"],["3","退職所得金額"],["4","上場株式等に係る配当所得等の金額"],["5","短期譲渡所得の金額"],["6","長期譲渡所得の金額"],["7","一般株式等に係る譲渡所得等の金額"],["8","上場株式等に係る譲渡所得等の金額"],["9","先物取引に係る雑所得等の金額"]],"3-2":[["1","山林所得金額"],["2","退職所得金額"],["3","上場株式等に係る配当所得等の金額"],["4","短期譲渡所得の金額"],["5","長期譲渡所得の金額"],["6","一般株式等に係る譲渡所得等の金額"],["7","上場株式等に係る譲渡所得等の金額"],["8","先物取引に係る雑所得等の金額"]],"3-3":[["1","原則"],["2","生活に通常必要でない資産の損失の金額"],["3","不動産所得に係る特例"],["4","短期譲渡所得の損失の金額"],["5","長期譲渡所得の損失の金額"],["6","上場株式等に係る配当所得の損失の金額"],["7","一般株式等の譲渡による損失の金額"],["8","上場株式等の譲渡による損失の金額"],["9","先物取引に係る損失の金額"]],"3-4":[["1","純損失の繰越控除"],["2","申告要件"],["3","純損失の金額"],["4","特定非常災害に係る純損失の繰越控除の特例"],["5","繰越控除の順序"]],"3-5":[["1","雑損失の繰越控除"],["2","申告要件"],["3","雑損失の金額"],["4","特定非常災害に係る雑損失の繰越控除の特例"],["5","繰越控除の順序"]],"3-6":[["1","居住用財産の譲渡損失の損益通算"],["2","居住用財産の譲渡損失の繰越控除"],["3","居住用財産の譲渡損失の金額"],["4","居住用財産の譲渡"]],"3-7":[["1","特定居住用財産の譲渡損失の損益通算"],["2","特定居住用財産の譲渡損失の繰越控除"],["3","特定居住用財産の譲渡損失の金額"],["4","居住用財産の譲渡"]],"3-8":[["1","内容"],["2","年末調整における控除"],["3","扶養親族等の判定の時期"],["4","用語の意義"]],"4-1":[["1","雑損控除"],["2","医療費控除"],["3","社会保険料控除"],["4","小規模企業共済等掛金控除"],["5","生命保険料控除"],["6","地震保険料控除"],["7","寄附金控除"],["8","災免法による軽減又は免除"],["9","災免法による徴収猶予"]],"4-2":[["1","障害者控除"],["2","寡婦控除"],["3","ひとり親控除"],["4","勤労学生控除"],["5","配偶者控除"],["6","配偶者特別控除"],["7","扶養控除"],["8","特定親族特別控除"],["9","基礎控除"],["10","扶養親族等の判定の時期"]],"4-3":[["1","内容"],["2","医療費の範囲"],["3","手続"]],"5-1":[["1","内容"],["2","申告要件"],["3","変動所得"],["4","臨時所得"]],"5-2":[["1","配当控除"],["2","用語の意義"],["3","控除限度額"]],"5-3":[["1","内容"],["2","外国税額控除の繰越控除"],["3","外国所得税額が減額された場合"],["4","還付"],["5","控除順序"]],"5-4":[["1","内容"],["2","申告要件"],["3","災害により居住の用に供することができなくなった場合"],["4","要耐震改修住宅の特例"],["5","年末調整における控除"],["6","転任後の再居住年以後の特例"],["7","適用除外"],["8","控除限度額"]],"5-5":[["1","居住年の翌年以後に転任等があった場合"],["2","居住年に転任等があった場合"]],"5-6":[["1","住宅借入金等特別税額控除"],["2","認定住宅等新築等特別税額控除"]],"6-1":[["1","一般の場合"],["2","特別農業所得者の場合"],["3","納期限の特例"],["4","通知"],["5","予定納税基準額の計算の基準日等"],["6","予定納税基準額"]],"6-2":[["1","承認の申請"],["2","手続"],["3","処分"],["4","減額承認後の予定納税額"],["5","申告納税見積額"],["6","予定納税基準額"]],"6-3":[["1","確定所得申告"],["2","確定所得申告を要しない場合"],["3","還付等を受けるための確定申告"],["4","確定損失申告"],["5","復興特別所得税の確定申告"]],"6-4":[["1","死亡の場合"],["2","出国の場合"]],"6-5":[["1","一般の場合"],["2","死亡の場合"],["3","出国の場合"],["4","復興特別所得税の納付"]],"6-6":[["1","確定申告税額の延納"],["2","延払条件付譲渡に係る税額の延納"],["3","復興特別所得税の延納"],["4","利子税の納付"]],"6-7":[["1","一般の場合"],["2","事業を廃止した場合等"],["3","死亡の場合"],["4","還付加算金"],["5","純損失の金額"]],"6-8":[["1","内容"],["2","帳簿書類"],["3","添付書類"],["4","青色申告者の特典"]],"6-9":[["1","家事関連費の必要経費算入"],["2","棚卸資産の評価についての低価法の選択"],["3","特別償却"],["4","中小事業者の少額減価償却資産の取得価額の必要経費算入の特例"],["5","貸倒引当金（一括評価）"],["6","青色事業専従者給与の必要経費算入"],["7","小規模事業者の現金基準"],["8","青色申告特別控除"],["9","純損失の繰越控除"],["10","純損失の繰戻しによる還付"],["11","特別税額控除"],["12","減価償却資産等の損失の必要経費算入の特例"],["13","更正又は決定"]],"7-1":[["1","源泉徴収"],["2","源泉徴収に係る所得税の納税地"],["3","復興特別所得税の源泉徴収"],["4","源泉徴収における推計課税"]],"7-2":[["1","利子所得の源泉徴収"],["2","配当所得の源泉徴収"],["3","納税地"],["4","復興特別所得税の源泉徴収"]],"7-3":[["1","源泉徴収義務"],["2","源泉徴収を要しない場合"],["3","源泉徴収税額"],["4","給与所得者の扶養控除等申告書"],["5","年末調整"],["6","納期の特例"],["7","納税地"],["8","復興特別所得税の源泉徴収"],["9","災免法による徴収猶予"]],"7-4":[["1","内容"],["2","過納額の還付"],["3","不足額の徴収"],["4","給与所得者の源泉徴収に関する申告"],["5","復興特別所得税の年末調整"],["6","給与所得の源泉徴収票"]],"7-5":[["1","源泉徴収義務"],["2","源泉徴収を要しない場合"],["3","源泉徴収税額"],["4","退職所得の受給に関する申告書"],["5","納期の特例"],["6","納税地"],["7","復興特別所得税の源泉徴収"],["8","退職所得の源泉徴収票"]],"7-6":[["1","源泉徴収義務"],["2","公的年金等の受給者の扶養親族等申告書"],["3","源泉徴収を要しない場合"],["4","納税地"],["5","復興特別所得税の源泉徴収"],["6","公的年金等の源泉徴収票"],["7","災免法による徴収猶予"]],"8-1":[["1","帳簿書類の備付け及び保存"],["2","添付書類"],["3","総収入金額報告書"]],"8-2":[["1","給与所得の源泉徴収票"],["2","退職所得の源泉徴収票"],["3","公的年金等の源泉徴収票"],["4","支払調書"],["5","国外財産調書"],["6","財産債務調書"]],"9-1":[["1","国税通則法の原則"],["2","措置法の特則"],["3","手続"],["4","納付"],["5","修正申告の効力"],["6","附帯税等"]],"9-2":[["1","国税通則法の原則"],["2","国税通則法の特則"],["3","所得税法の特則"],["4","措置法の特則"],["5","手続"],["6","処分"],["7","徴収の不猶予"]],"9-3":[["1","更正"],["2","決定"],["3","再更正"],["4","その他"],["5","所得税法の特則"],["6","措置法の特則"],["7","納付"]],"9-4":[["1","概要"],["2","不服申立てができる場合"],["3","不服申立て期間"],["4","手続"],["5","決定又は裁決"]],"10-1":[["1","国外転出をする場合の譲渡所得等の特例"],["2","譲渡がなかったものとされる場合"],["3","納税猶予"],["4","取得価額"]],"10-2":[["1","贈与等により非居住者に資産が移転した場合の譲渡所得等の特例"],["2","譲渡がなかったものとされる場合"],["3","納税猶予"],["4","取得価額"]]};
 const DEFAULTS = {
   proxy: 'https://notion-proxy.djsa9pro.workers.dev',
   db: '36ffa2ca-2310-8184-85f0-c579a9cefb48',
@@ -267,7 +316,7 @@ function toast(msg, color = 'bg-slate-700') {
 // ── タブ ──
 function showTab(name) {
   if (typeof removeAnsPop === 'function' && name !== 'quiz') removeAnsPop();
-  for (const t of ['quiz', 'stats', 'range', 'settings']) {
+  for (const t of ['quiz', 'pillar', 'stats', 'range', 'settings']) {
     $('view-' + t).classList.toggle('hidden', t !== name);
   }
   document.querySelectorAll('.tabbtn').forEach(b => {
@@ -277,6 +326,7 @@ function showTab(name) {
   // フッターは出題カード表示中のみ（完了パネル中は隠す）
   const quizActive = name === 'quiz' && !$('quizBox').classList.contains('hidden');
   $('footerBar').classList.toggle('hidden', !quizActive);
+  if (name === 'pillar') renderPillarStart();
   if (name === 'stats') renderStats();
   if (name === 'range') renderRange();
   if (name === 'settings') fillSettings();
@@ -1123,6 +1173,109 @@ function jumpTo(id) {
   if (i >= 0) { queueIdx = i; saveState(); showTab('quiz'); renderCard(); }
   else toast('この穴は本日分では既に終了しています', 'bg-slate-600');
 }
+
+// ── 柱（構成）想起モード ──
+let pillarSRS = JSON.parse(localStorage.getItem('pillarSRS') || '{}'); // sec -> {interval, ef, next, correct, total}
+let pillarQueue = [];
+let pillarIdx = 0;
+let pillarSession = { ok: 0, ng: 0 };
+
+function pillarScope() {
+  const sel = selectedSections();
+  const all = Object.keys(SECTION_HEADINGS);
+  return sel ? all.filter(s => sel.includes(s)) : all;
+}
+function pillarDueList() {
+  const t = todayStr();
+  return pillarScope().filter(s => {
+    const r = pillarSRS[s];
+    return !r || !r.next || r.next <= t;
+  });
+}
+function renderPillarStart() {
+  $('pillarCard').classList.add('hidden'); $('pillarCard').classList.remove('flex');
+  $('pillarDone').classList.add('hidden'); $('pillarDone').classList.remove('flex');
+  $('pillarStart').classList.remove('hidden'); $('pillarStart').classList.add('flex');
+  const scope = pillarScope(), due = pillarDueList();
+  const studied = scope.filter(s => pillarSRS[s] && pillarSRS[s].total > 0).length;
+  $('pillarDueInfo').textContent = `範囲 ${scope.length}題中 ／ 今日の復習対象 ${due.length}題 ／ 学習済み ${studied}題`;
+}
+function startPillar(all) {
+  const list = all ? pillarScope() : pillarDueList();
+  if (list.length === 0) { toast('今日の復習対象はありません 👏（「範囲内すべて」で練習可）', 'bg-emerald-600'); return; }
+  // 題番号順をシャッフル
+  pillarQueue = list.slice();
+  for (let i = pillarQueue.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pillarQueue[i], pillarQueue[j]] = [pillarQueue[j], pillarQueue[i]];
+  }
+  pillarIdx = 0; pillarSession = { ok: 0, ng: 0 };
+  $('pillarStart').classList.add('hidden'); $('pillarStart').classList.remove('flex');
+  $('pillarDone').classList.add('hidden'); $('pillarDone').classList.remove('flex');
+  $('pillarCard').classList.remove('hidden'); $('pillarCard').classList.add('flex');
+  pillarRender();
+}
+function pillarRender() {
+  if (pillarIdx >= pillarQueue.length) { pillarDone(); return; }
+  const sec = pillarQueue[pillarIdx];
+  $('pillarSecNo').textContent = '問題 ' + sec;
+  $('pillarProg').textContent = `${pillarIdx} / ${pillarQueue.length}`;
+  const r = pillarSRS[sec];
+  const rate = r && r.total ? Math.round(r.correct / r.total * 100) : null;
+  $('pillarDueBadge').textContent = r && r.total ? `正答率${rate}%` : '初';
+  $('pillarDueBadge').className = 'text-[11px] font-bold px-2 py-0.5 rounded-full ' +
+    (rate === null ? 'bg-slate-400 text-white' : rate >= 80 ? 'bg-emerald-500 text-white' : rate >= 50 ? 'bg-amber-500 text-white' : 'bg-rose-500 text-white');
+  $('pillarQ').classList.remove('hidden');
+  $('pillarAnswer').classList.add('hidden');
+  $('pillarReveal').classList.remove('hidden');
+  $('pillarJudge').classList.add('hidden');
+}
+function pillarRevealAns() {
+  const sec = pillarQueue[pillarIdx];
+  $('pillarTitle').textContent = sec + ' ' + (SECTION_TITLES[sec] || '');
+  const heads = SECTION_HEADINGS[sec] || [];
+  $('pillarList').innerHTML = heads.map(([n, name]) =>
+    `<li class="flex gap-2 text-[15px] leading-relaxed">
+      <span class="font-bold text-indigo-600 dark:text-indigo-400 shrink-0">〔${n}〕</span>
+      <span>${name.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</span>
+    </li>`).join('');
+  $('pillarAnswer').classList.remove('hidden');
+  $('pillarReveal').classList.add('hidden');
+  $('pillarJudge').classList.remove('hidden');
+}
+function pillarSM2(sec, ok) {
+  const r = pillarSRS[sec] || { interval: 1, ef: 2.5, correct: 0, total: 0 };
+  let interval = r.interval || 1, ef = r.ef || 2.5;
+  if (ok) {
+    ef = Math.min(3.0, ef + 0.1);
+    interval = (r.total === 0 || interval <= 1) ? (r.total === 0 ? 1 : 3) : Math.round(interval * ef);
+  } else { ef = Math.max(1.3, ef - 0.2); interval = 1; }
+  interval = Math.max(1, Math.min(interval, intervalCap(), daysToExam() || 1));
+  const d = new Date(); d.setDate(d.getDate() + interval);
+  const next = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  pillarSRS[sec] = {
+    interval, ef, next,
+    correct: (r.correct || 0) + (ok ? 1 : 0),
+    total: (r.total || 0) + 1,
+  };
+  localStorage.setItem('pillarSRS', JSON.stringify(pillarSRS));
+}
+function pillarGrade(ok) {
+  const sec = pillarQueue[pillarIdx];
+  pillarSM2(sec, ok);
+  ok ? pillarSession.ok++ : pillarSession.ng++;
+  if (ok) confetti();
+  pillarIdx++;
+  pillarRender();
+}
+function pillarDone() {
+  $('pillarCard').classList.add('hidden'); $('pillarCard').classList.remove('flex');
+  $('pillarDone').classList.remove('hidden'); $('pillarDone').classList.add('flex');
+  const t = pillarSession.ok + pillarSession.ng;
+  $('pillarDoneStats').textContent = `言えた ${pillarSession.ok} ／ 言えなかった ${pillarSession.ng}` +
+    (t ? `（${Math.round(pillarSession.ok / t * 100)}%）` : '');
+}
+function pillarBackStart() { renderPillarStart(); }
 
 // ── 範囲選択 ──
 const SECTION_TITLES = {"1-1":"個人の納税義務者と課税所得の範囲等","1-2":"法人の納税義務者と課税所得の範囲等","1-3":"納税地","2-1":"非課税所得","2-2":"保険金、損害賠償金等を取得した場合、支出した場合の取扱い","2-3":"年金についての課税関係","2-4":"各種所得の意義及び金額","2-5":"給与所得","2-6":"退職所得","2-7":"借地権等の設定に伴い取得した権利金の取扱い","2-8":"所得金額の計算の通則","2-9":"収入金額の評価の別段の定め","2-10":"資産の無償又は低額による移転があった場合","2-11":"収入及び費用の帰属時期の特例","2-12":"固定資産の交換の場合の譲渡所得の特例","2-13":"居住用財産を譲渡した場合の課税の特例","2-14":"利子所得、配当所得の課税関係","2-15":"有価証券の譲渡による所得の課税関係","2-16":"特定口座制度及び特定管理口座制度","2-17":"非課税口座制度","2-18":"特定の取締役等が受ける新株予約権の行使による株式の取得に係る経済的利益の非課税等","2-19":"特定中小会社が発行した株式に係る特例","2-20":"先物取引に係る所得の課税関係","2-21":"家事関連費等の取扱い","2-22":"資産について生じた損失の取扱い","2-23":"債権が回収不能となった場合の取扱い","2-24":"貸倒引当金","2-25":"事業を営む居住者と生計を一にする親族が支払を受ける対価","2-26":"資産に係る控除対象外消費税額等の必要経費算入","2-27":"取得費（有価証券の取得費を除く。）","2-28":"青色申告特別控除","3-1":"課税標準","3-2":"申告分離課税","3-3":"損益通算","3-4":"純損失の繰越控除","3-5":"雑損失の繰越控除","3-6":"居住用財産の買換え等の場合の譲渡損失の損益通算及び繰越控除","3-7":"特定居住用財産の譲渡損失の損益通算及び繰越控除","3-8":"所得金額調整控除","4-1":"所得控除（物的控除）","4-2":"所得控除（人的控除）","4-3":"医療費控除","5-1":"平均課税制度","5-2":"配当控除","5-3":"外国税額控除","5-4":"住宅借入金等を有する場合の所得税額の特別控除","5-5":"転任後の再居住年以後の特例","5-6":"認定住宅等に係る税額控除","6-1":"予定納税制度（予定納税額の減額承認申請を除く。）","6-2":"予定納税額の減額承認申請","6-3":"確定申告（死亡又は出国の場合を除く。）","6-4":"死亡又は出国の場合の確定申告","6-5":"確定申告による納付","6-6":"延納","6-7":"純損失の繰戻しによる還付","6-8":"青色申告制度","6-9":"青色申告者の特典","7-1":"源泉徴収","7-2":"利子所得、配当所得の源泉徴収","7-3":"給与所得の源泉徴収","7-4":"年末調整","7-5":"退職所得の源泉徴収","7-6":"公的年金等の源泉徴収","8-1":"帳簿書類の備付け等及び添付書類並びに総収入金額報告書の提出","8-2":"法定調書","9-1":"修正申告","9-2":"更正の請求","9-3":"更正又は決定","9-4":"不服申立て","10-1":"国外転出（出国）時課税制度","10-2":"国外転出（贈与等）時課税制度"};
