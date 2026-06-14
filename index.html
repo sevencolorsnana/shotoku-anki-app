@@ -77,8 +77,12 @@
           <span id="qRank" class="text-[11px] text-amber-500 font-bold"></span>
           <span id="qHole" class="text-[11px] text-slate-400"></span>
           <span id="wrongBadge" class="hidden text-[11px] font-bold bg-rose-500 text-white px-2 py-0.5 rounded-full pop">前回不正解</span>
-          <button onclick="flagSpot()" class="ml-auto text-[11px] px-2 py-1 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 pressable">🚩 フラグ</button>
-          <button onclick="openEdit()" class="text-[11px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 pressable">✏️ 修正</button>
+          <button onclick="flagSpot()" class="ml-auto text-[11px] px-2 py-1 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 pressable">🚩</button>
+          <button onclick="openEdit()" class="text-[11px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 pressable">✏️</button>
+        </div>
+        <div class="flex items-center gap-2 mb-1.5">
+          <button onclick="skipHeading()" class="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 pressable">⏩ 次の見出し</button>
+          <button onclick="skipSection()" class="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 pressable">⏭ 次の題</button>
         </div>
         <div id="qTitle" class="text-sm font-bold mb-0.5"></div>
         <div id="qHeading" class="text-[11px] text-slate-400 mb-2"></div>
@@ -217,13 +221,9 @@
   <footer id="footerBar" class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[520px] z-40
                  bg-white/90 dark:bg-slate-900/90 backdrop-blur border-t border-slate-200 dark:border-slate-800
                  px-3 pt-2.5" style="padding-bottom: calc(10px + var(--safe-bottom));">
-    <div class="flex items-center justify-between mb-1.5">
-      <div class="flex gap-1.5">
-        <button id="undoBtn" onclick="undo()" class="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 pressable" disabled>↩ 戻る</button>
-        <button onclick="skipHeading()" class="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 pressable">⏩ 見出し</button>
-      </div>
+    <div class="flex items-center justify-center mb-1.5">
+      <button id="undoBtn" onclick="undo()" class="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 pressable mr-3" disabled>↩ 戻る</button>
       <span class="text-[11px] text-slate-400">進捗 <span id="progressText">0/0</span></span>
-      <button onclick="skipSection()" class="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 pressable">⏭ 次の題</button>
     </div>
     <button id="revealBtn" onclick="reveal()" class="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl font-bold text-base shadow-lg pressable">👀 正解を確認する</button>
     <div id="judgeBtns" class="hidden grid grid-cols-2 gap-3">
@@ -273,12 +273,26 @@
     </div>
   </div>
 
+  <!-- フラグ入力モーダル -->
+  <div id="flagModal" class="hidden fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center" onclick="if(event.target===this)closeFlag()">
+    <div class="bg-white dark:bg-slate-900 w-full max-w-[520px] rounded-t-3xl sm:rounded-2xl p-4">
+      <h3 class="font-bold mb-1">🚩 フラグ（要修正メモ）</h3>
+      <div id="flagWhere" class="text-[11px] text-slate-400 mb-2"></div>
+      <textarea id="flagNote" rows="6" class="w-full p-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm leading-relaxed" placeholder="例：⑵の後に穴が抜けている／正解は『居所地』が正しい／この穴は不要 など。修正内容を自由に記入"></textarea>
+      <div class="grid grid-cols-2 gap-3 mt-3">
+        <button onclick="closeFlag()" class="py-3 bg-slate-200 dark:bg-slate-700 rounded-xl font-bold pressable">キャンセル</button>
+        <button onclick="saveFlag()" id="flagSaveBtn" class="py-3 bg-amber-500 text-white rounded-xl font-bold pressable">🚩 フラグ保存</button>
+      </div>
+      <div id="flagMsg" class="text-center text-xs mt-2 h-4"></div>
+    </div>
+  </div>
+
   <div id="toast" class="hidden fixed top-[70px] left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full text-sm font-bold text-white shadow-lg pop"></div>
 </div>
 
 <script>
 'use strict';
-const APP_VER = 'v25';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v26';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 // 各題の大見出し〔n〕の構成（穴の有無に関わらず存在する見出し番号）
 const SECTION_STRUCT = {"1-1":["1","2","3","4","5"],"1-2":["1","2","3","4"],"1-3":["1","2","3","4","5","6"],"2-1":["1","2","3","4","5","6","7","8"],"2-2":["1","2"],"2-3":["1","2","3","4","5","6"],"2-4":["1","2","3","4","5","6","7","8","9","10"],"2-5":["1","2","3","4","5","6","7"],"2-6":["1","2","3","4","5","6"],"2-7":["1","2","3"],"2-8":["1","2","3"],"2-9":["1","2","3","4","5"],"2-10":["1","2"],"2-11":["1","2"],"2-12":["1","2","3"],"2-13":["1","2","3","4","5"],"2-14":["1","2","3","4","5"],"2-15":["1","2","3","4"],"2-16":["1","2"],"2-17":["1","2"],"2-18":["1","2","3","4"],"2-19":["1","2","3","4"],"2-20":["1","2","3"],"2-21":["1","2","3","4"],"2-22":["1","2","3","4","5","6"],"2-23":["1","2","3"],"2-24":["1","2","3","4","5"],"2-25":["1","2","3","4"],"2-26":["1","2"],"2-27":["1","2","3","4"],"2-28":["1","2"],"3-1":["1","2","3","4","5","6","7","8","9"],"3-2":["1","2","3","4","5","6","7","8"],"3-3":["1","2","3","4","5","6","7","8","9"],"3-4":["1","2","3","4","5"],"3-5":["1","2","3","4","5"],"3-6":["1","2","3","4"],"3-7":["1","2","3","4"],"3-8":["1","2","3","4"],"4-1":["1","2","3","4","5","6","7","8","9"],"4-2":["1","2","3","4","5","6","7","8","9","10"],"4-3":["1","2","3"],"5-1":["1","2","3","4"],"5-2":["1","2","3"],"5-3":["1","2","3","4","5"],"5-4":["1","2","3","4","5","6","7","8"],"5-5":["1","2"],"5-6":["1","2"],"6-1":["1","2","3","4","5","6"],"6-2":["1","2","3","4","5","6"],"6-3":["1","2","3","4","5"],"6-4":["1","2"],"6-5":["1","2","3","4"],"6-6":["1","2","3","4"],"6-7":["1","2","3","4","5"],"6-8":["1","2","3","4"],"6-9":["1","2","3","4","5","6","7","8","9","10","11","12","13"],"7-1":["1","2","3","4"],"7-2":["1","2","3","4"],"7-3":["1","2","3","4","5","6","7","8","9"],"7-4":["1","2","3","4","5","6"],"7-5":["1","2","3","4","5","6","7","8"],"7-6":["1","2","3","4","5","6","7"],"8-1":["1","2","3"],"8-2":["1","2","3","4","5","6"],"9-1":["1","2","3","4","5","6"],"9-2":["1","2","3","4","5","6","7"],"9-3":["1","2","3","4","5","6","7"],"9-4":["1","2","3","4","5"],"10-1":["1","2","3","4"],"10-2":["1","2","3","4"]};
@@ -557,7 +571,7 @@ function renderCard() {
     .replace(/〔_〕/g, `<span class="${curCls} blink">〔？〕</span>`)
     .replace(/〔●(\d+)〕/g, (m, n) => {
       const oid = c.section + '_' + String(n).padStart(3, '0');
-      return `<span class="${wrongMap[oid] ? 'mask-wrong' : 'mask'}">〔●〕</span>`;
+      return `<span class="${wrongMap[oid] ? 'mask-wrong' : 'mask'}" onclick="showHoleAnswer(${n},event)">〔●〕</span>`;
     });
   $('qCard').classList.remove('card-in');
   void $('qCard').offsetWidth;
@@ -579,6 +593,33 @@ function updateProgress() {
   $('progressText').textContent = `${done} / ${cards.length}` + (inWrongReview ? '（復習中）' : '');
   $('progressBar').style.width = (cards.length ? done / cards.length * 100 : 0) + '%';
   $('streak').textContent = streak;
+}
+
+// 本文中の伏せ字●をタップしたら、その穴の正解を吹き出しで表示（前問の確認用）
+function showHoleAnswer(n, ev) {
+  if (ev) ev.stopPropagation();
+  const c = cards[queueIdx];
+  if (!c) return;
+  const other = baseCards.find(x => x.section === c.section && x.holeNum === n);
+  if (!other) { toast('その穴は本日の出題範囲にありません', 'bg-slate-600'); return; }
+  const el = ev && ev.target;
+  if (!el) return;
+  document.querySelectorAll('.holepop').forEach(p => p.remove());
+  const pop = document.createElement('div');
+  pop.className = 'holepop pop';
+  pop.textContent = other.answer;
+  pop.style.cssText =
+    'position:fixed;z-index:60;background:#334155;color:#fff;font-weight:700;font-size:14px;' +
+    'padding:6px 10px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.3);' +
+    'max-width:calc(100vw - 24px);width:max-content;white-space:normal;';
+  document.body.appendChild(pop);
+  const r = el.getBoundingClientRect(), vw = document.documentElement.clientWidth;
+  let left = Math.min(Math.max(r.left, 12), vw - pop.offsetWidth - 12);
+  let top = r.top - pop.offsetHeight - 8;
+  if (top < 70) top = r.bottom + 8;
+  pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  clearTimeout(showHoleAnswer._t);
+  showHoleAnswer._t = setTimeout(() => pop.remove(), 2600);
 }
 
 function removeAnsPop() {
@@ -876,12 +917,56 @@ function renderRepairBanner(c) {
 
 // ── フラグ（穴抜け・要修正箇所をNotionに記録して後でClaudeが穴生成） ──
 let notionFlags = [];   // Notionフラグ（未対応）のキャッシュ
-async function flagSpot() {
+let fullStats = JSON.parse(localStorage.getItem('fullStats') || 'null'); // Notion全題集計（累計・端末共通）
+
+// Notionの全穴から累計正答率を集計（端末を跨いで共通、リセットされない）
+async function aggregateAllFromNotion() {
+  if (!cfg.token) { toast('⚙トークン未設定', 'bg-rose-500'); return; }
+  toast('📊 集計中...', 'bg-indigo-500');
+  try {
+    let res = [], cursor;
+    do {
+      const body = { page_size: 100 };
+      if (cursor) body.start_cursor = cursor;
+      const j = await notion(`/v1/databases/${cfg.db}/query`, body);
+      res = res.concat(j.results); cursor = j.has_more ? j.next_cursor : undefined;
+    } while (cursor);
+    const secs = {};
+    for (const p of res) {
+      const s = prop(p.properties, '題番号', 'rich_text');
+      if (!s) continue;
+      const correct = prop(p.properties, '正答回数', 'number');
+      const total = prop(p.properties, '出題回数', 'number');
+      const heading = prop(p.properties, '大見出し', 'rich_text');
+      const title = prop(p.properties, '題名', 'rich_text');
+      const n = (heading.match(/〔(\d+)〕/) || [])[1] || '-';
+      const o = secs[s] = secs[s] || { ok: 0, ng: 0, title, heads: {} };
+      o.ok += correct; o.ng += (total - correct); o.title = title;
+      const hh = o.heads[n] = o.heads[n] || { ok: 0, ng: 0 };
+      hh.ok += correct; hh.ng += (total - correct);
+    }
+    fullStats = { ts: Date.now(), secs };
+    localStorage.setItem('fullStats', JSON.stringify(fullStats));
+    toast('✓ 集計完了', 'bg-emerald-600');
+    renderStats();
+  } catch (e) { toast('集計失敗: ' + e.message, 'bg-rose-500'); }
+}
+function flagSpot() {
   const c = cards[queueIdx];
   if (!c) return;
-  const note = prompt('メモ（例：⑵の後に穴が抜けている／問題文がおかしい 等）。空欄でも可', '');
-  if (note === null) return;
-  toast('🚩 フラグを保存中...', 'bg-amber-500');
+  $('flagWhere').textContent = `問題${c.section} ${c.heading || ''} ・ #穴${c.holeNum}`;
+  $('flagNote').value = '';
+  $('flagMsg').textContent = '';
+  $('flagModal').classList.remove('hidden');
+  setTimeout(() => $('flagNote').focus(), 50);
+}
+function closeFlag() { $('flagModal').classList.add('hidden'); }
+async function saveFlag() {
+  const c = cards[queueIdx];
+  if (!c) return;
+  const note = $('flagNote').value.trim();
+  $('flagSaveBtn').disabled = true;
+  $('flagMsg').textContent = '保存中...';
   try {
     await notion('/v1/pages', {
       parent: { database_id: cfg.flagDb },
@@ -889,14 +974,16 @@ async function flagSpot() {
         '内容': { title: [{ text: { content: (c.section + ' ' + (c.heading || '')).slice(0, 200) } }] },
         '題番号': { rich_text: [{ text: { content: c.section } }] },
         '大見出し': { rich_text: [{ text: { content: (c.heading || '').slice(0, 200) } }] },
-        'メモ': { rich_text: [{ text: { content: note.trim().slice(0, 1900) } }] },
+        'メモ': { rich_text: [{ text: { content: note.slice(0, 1900) } }] },
         '状態': { select: { name: '未対応' } },
       },
     });
+    closeFlag();
     toast('🚩 フラグをNotionに保存しました', 'bg-emerald-600');
   } catch (e) {
-    toast('⚠ フラグ保存失敗: ' + e.message, 'bg-rose-500');
+    $('flagMsg').textContent = '⚠ ' + e.message;
   }
+  $('flagSaveBtn').disabled = false;
 }
 async function refreshFlags() {
   if (!cfg.token || !cfg.flagDb) { notionFlags = []; return; }
@@ -1178,10 +1265,12 @@ function tidSort(a, b) {
 }
 function renderStats() {
   const box = $('view-stats');
-  // 累計（history）+ 今日のカードのNotion統計
-  const secs = Object.keys(history).sort(tidSort);
+  // 集計元: Notion全題集計があればそれ（累計・端末共通）、無ければ当日のhistory
+  const STAT = (fullStats && fullStats.secs) ? fullStats.secs : history;
+  const usingFull = !!(fullStats && fullStats.secs);
+  const secs = Object.keys(STAT).sort(tidSort);
   let totalAns = 0, totalOk = 0;
-  for (const s of secs) { totalAns += history[s].ok + history[s].ng; totalOk += history[s].ok; }
+  for (const s of secs) { totalAns += STAT[s].ok + STAT[s].ng; totalOk += STAT[s].ok; }
 
   // 弱点穴（今日読み込んだカードから: 2回以上出題かつ正答率60%未満 or 前回不正解）
   const weak = cards
@@ -1189,8 +1278,11 @@ function renderStats() {
     .sort((a, b) => (a.total ? a.correct / a.total : 0) - (b.total ? b.correct / b.total : 0))
     .slice(0, 15);
 
-  // 未学習・薄い題（historyにない/回答数が少ない選択範囲の題）
-  const thin = secs.filter(s => history[s].ok + history[s].ng < 10);
+  // 未学習・薄い題（回答数が少ない題）
+  const thin = secs.filter(s => STAT[s].ok + STAT[s].ng < 10);
+  const aggInfo = usingFull
+    ? `Notion全題集計（${new Date(fullStats.ts).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}時点・端末共通の累計）`
+    : '当日の記録のみ。下のボタンでNotionから全題の累計を集計できます';
 
   const flagsHtml = notionFlags.length === 0 ? '' : `
   <div class="bg-amber-50 dark:bg-amber-950/50 rounded-2xl shadow p-4">
@@ -1235,10 +1327,11 @@ function renderStats() {
 
   <div class="bg-white dark:bg-slate-900 rounded-2xl shadow p-4">
     <h2 class="font-bold mb-1">📚 題ごとの正答率（タップで見出し別に展開）</h2>
-    <div class="text-[11px] text-slate-400 mb-2">〔1〕〔2〕…ごとの正答率で苦手な箇所を把握</div>
+    <div class="text-[11px] text-slate-400 mb-1">${aggInfo}</div>
+    <button onclick="aggregateAllFromNotion()" class="mb-2 px-3 py-1.5 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-lg pressable">📊 Notionから全題を集計（更新）</button>
     ${secs.length === 0 ? '<div class="text-sm text-slate-400">まだ回答データがありません</div>' :
       secs.map(s => {
-        const h = history[s], t = h.ok + h.ng, rate = t ? Math.round(h.ok / t * 100) : 0;
+        const h = STAT[s], t = h.ok + h.ng, rate = t ? Math.round(h.ok / t * 100) : 0;
         const color = rate >= 80 ? 'bg-emerald-500' : rate >= 50 ? 'bg-amber-500' : 'bg-rose-500';
         const heads = h.heads || {};
         const hnums = Object.keys(heads).sort((a, b) => Number(a) - Number(b));
