@@ -215,6 +215,7 @@
       <div id="saveMsg" class="text-center text-emerald-600 text-xs h-4"></div>
       <button onclick="clearCache()" class="w-full py-2 text-xs text-rose-500 underline">キャッシュを削除して全件再取得</button>
     </div>
+    <div id="settingsFlags" class="mt-3"></div>
   </main>
 
   <!-- 固定フッター（採点ボタン） -->
@@ -247,7 +248,10 @@
         <button onclick="saveEdit()" id="editSaveBtn" class="py-3 bg-indigo-600 text-white rounded-xl font-bold pressable">保存</button>
       </div>
       <div id="editMsg" class="text-center text-xs mt-2 h-4"></div>
-      <button onclick="openAdd()" class="mt-3 w-full py-2 text-xs text-indigo-500 underline">➕ この題に穴を新規追加する</button>
+      <div class="flex gap-3 mt-2">
+        <button onclick="openAdd()" class="flex-1 py-2 text-xs text-indigo-500 underline">➕ この題に穴を追加</button>
+        <button onclick="deleteHole()" class="flex-1 py-2 text-xs text-rose-500 underline">🗑 この穴を削除</button>
+      </div>
     </div>
   </div>
 
@@ -292,7 +296,7 @@
 
 <script>
 'use strict';
-const APP_VER = 'v26';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v27';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 // 各題の大見出し〔n〕の構成（穴の有無に関わらず存在する見出し番号）
 const SECTION_STRUCT = {"1-1":["1","2","3","4","5"],"1-2":["1","2","3","4"],"1-3":["1","2","3","4","5","6"],"2-1":["1","2","3","4","5","6","7","8"],"2-2":["1","2"],"2-3":["1","2","3","4","5","6"],"2-4":["1","2","3","4","5","6","7","8","9","10"],"2-5":["1","2","3","4","5","6","7"],"2-6":["1","2","3","4","5","6"],"2-7":["1","2","3"],"2-8":["1","2","3"],"2-9":["1","2","3","4","5"],"2-10":["1","2"],"2-11":["1","2"],"2-12":["1","2","3"],"2-13":["1","2","3","4","5"],"2-14":["1","2","3","4","5"],"2-15":["1","2","3","4"],"2-16":["1","2"],"2-17":["1","2"],"2-18":["1","2","3","4"],"2-19":["1","2","3","4"],"2-20":["1","2","3"],"2-21":["1","2","3","4"],"2-22":["1","2","3","4","5","6"],"2-23":["1","2","3"],"2-24":["1","2","3","4","5"],"2-25":["1","2","3","4"],"2-26":["1","2"],"2-27":["1","2","3","4"],"2-28":["1","2"],"3-1":["1","2","3","4","5","6","7","8","9"],"3-2":["1","2","3","4","5","6","7","8"],"3-3":["1","2","3","4","5","6","7","8","9"],"3-4":["1","2","3","4","5"],"3-5":["1","2","3","4","5"],"3-6":["1","2","3","4"],"3-7":["1","2","3","4"],"3-8":["1","2","3","4"],"4-1":["1","2","3","4","5","6","7","8","9"],"4-2":["1","2","3","4","5","6","7","8","9","10"],"4-3":["1","2","3"],"5-1":["1","2","3","4"],"5-2":["1","2","3"],"5-3":["1","2","3","4","5"],"5-4":["1","2","3","4","5","6","7","8"],"5-5":["1","2"],"5-6":["1","2"],"6-1":["1","2","3","4","5","6"],"6-2":["1","2","3","4","5","6"],"6-3":["1","2","3","4","5"],"6-4":["1","2"],"6-5":["1","2","3","4"],"6-6":["1","2","3","4"],"6-7":["1","2","3","4","5"],"6-8":["1","2","3","4"],"6-9":["1","2","3","4","5","6","7","8","9","10","11","12","13"],"7-1":["1","2","3","4"],"7-2":["1","2","3","4"],"7-3":["1","2","3","4","5","6","7","8","9"],"7-4":["1","2","3","4","5","6"],"7-5":["1","2","3","4","5","6","7","8"],"7-6":["1","2","3","4","5","6","7"],"8-1":["1","2","3"],"8-2":["1","2","3","4","5","6"],"9-1":["1","2","3","4","5","6"],"9-2":["1","2","3","4","5","6","7"],"9-3":["1","2","3","4","5","6","7"],"9-4":["1","2","3","4","5"],"10-1":["1","2","3","4"],"10-2":["1","2","3","4"]};
@@ -352,9 +356,9 @@ function showTab(name) {
   const quizActive = name === 'quiz' && !$('quizBox').classList.contains('hidden');
   $('footerBar').classList.toggle('hidden', !quizActive);
   if (name === 'pillar') renderPillarStart();
-  if (name === 'stats') { renderStats(); refreshFlags().then(renderStats); }
+  if (name === 'stats') renderStats();
   if (name === 'range') renderRange();
-  if (name === 'settings') fillSettings();
+  if (name === 'settings') { fillSettings(); renderSettingsFlags(); refreshFlags().then(renderSettingsFlags); }
 }
 document.querySelectorAll('.tabbtn').forEach(b => b.onclick = () => showTab(b.dataset.tab));
 
@@ -1003,11 +1007,31 @@ async function refreshFlags() {
     }));
   } catch (e) { notionFlags = []; }
 }
+function renderSettingsFlags() {
+  const box = $('settingsFlags');
+  if (!box) return;
+  if (notionFlags.length === 0) {
+    box.innerHTML = '<div class="bg-white dark:bg-slate-900 rounded-2xl shadow p-4 text-sm text-slate-400">🚩 未対応フラグはありません</div>';
+    return;
+  }
+  box.innerHTML = `<div class="bg-amber-50 dark:bg-amber-950/50 rounded-2xl shadow p-4">
+    <h2 class="font-bold mb-1">🚩 要修正フラグ（${notionFlags.length}）</h2>
+    <div class="text-[11px] text-slate-400 mb-2">Notionに保存済み。「フラグを修正して」と指示すればClaudeが対応します</div>
+    ${notionFlags.map(f => `
+      <div class="flex items-start gap-2 py-1.5 border-b border-amber-100 dark:border-amber-900 last:border-0">
+        <div class="flex-1">
+          <div class="text-sm font-medium">${esc(f.section)} <span class="text-[11px] text-slate-400">${esc(f.heading || '')}</span></div>
+          ${f.note ? `<div class="text-xs text-amber-700 dark:text-amber-300">${esc(f.note)}</div>` : ''}
+        </div>
+        <button onclick="markFlagDone('${f.pageId}')" class="text-[11px] text-slate-400 px-2 py-1 pressable">✓済</button>
+      </div>`).join('')}
+  </div>`;
+}
 async function markFlagDone(pageId) {
   try {
     await notion('/v1/pages/' + pageId, { properties: { '状態': { select: { name: '対応済' } } } }, 'PATCH');
     notionFlags = notionFlags.filter(f => f.pageId !== pageId);
-    renderStats();
+    renderSettingsFlags();
     toast('✓ 対応済にしました', 'bg-slate-600');
   } catch (e) { toast('⚠ ' + e.message, 'bg-rose-500'); }
 }
@@ -1090,6 +1114,27 @@ function openEdit() {
   $('editModal').classList.remove('hidden');
 }
 function closeEdit() { $('editModal').classList.add('hidden'); }
+// 出題中の穴をNotionからアーカイブして削除
+async function deleteHole() {
+  const c = cards[queueIdx];
+  if (!c) return;
+  if (!confirm(`この穴を削除しますか？\n${c.section} #穴${c.holeNum}\n正解: ${c.answer}`)) return;
+  $('editMsg').textContent = '削除中...';
+  try {
+    await notion('/v1/pages/' + c.pageId, { archived: true }, 'PATCH');
+    // ローカルのキューからも除去
+    baseCards = baseCards.filter(x => x.pageId !== c.pageId);
+    const wi = wrongCards.indexOf(c); if (wi >= 0) wrongCards.splice(wi, 1);
+    delete wrongMap[c.id];
+    cards.splice(queueIdx, 1);
+    saveState();
+    closeEdit();
+    toast('🗑 穴を削除しました', 'bg-slate-600');
+    if (queueIdx >= cards.length) showDone(); else renderCard();
+  } catch (e) {
+    $('editMsg').textContent = '⚠ ' + e.message;
+  }
+}
 // 修正の差分を抽出し、前後の文脈をアンカーとして付ける
 // （改行1文字の修正でも、文脈ごと照合することで他の穴へ安全に反映できる）
 function diffBlock(oldS, newS, ctx = 14) {
@@ -1107,6 +1152,19 @@ function diffBlock(oldS, newS, ctx = 14) {
   };
 }
 
+// 読み込み済みカード（同題）に編集差分を同期適用する
+function applyEditLocally(c, oldQ, newQ) {
+  const mk = `〔●${c.holeNum}〕`;
+  const d = diffBlock(oldQ.replaceAll('〔_〕', mk), newQ.replaceAll('〔_〕', mk));
+  if (!d || d.oldBlock.length < 4) return;
+  for (const lc of baseCards) {
+    if (lc === c || lc.section !== c.section) continue;
+    const om = d.oldBlock.replaceAll(`〔●${lc.holeNum}〕`, '〔_〕');
+    const nm = d.newBlock.replaceAll(`〔●${lc.holeNum}〕`, '〔_〕');
+    if (om && lc.question.includes(om)) lc.question = lc.question.replaceAll(om, nm);
+  }
+}
+
 async function saveEdit() {
   const c = cards[queueIdx];
   if (!c) return;
@@ -1122,6 +1180,8 @@ async function saveEdit() {
     }, 'PATCH');
     const oldQ = c.question;
     c.question = q; c.answer = a;
+    // 読み込み済みの同題カードへ即時反映（次の穴ですぐ反映されるように先に同期更新）
+    applyEditLocally(c, oldQ, q);
     saveState();
     closeEdit();
     renderCard();
@@ -1284,21 +1344,7 @@ function renderStats() {
     ? `Notion全題集計（${new Date(fullStats.ts).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}時点・端末共通の累計）`
     : '当日の記録のみ。下のボタンでNotionから全題の累計を集計できます';
 
-  const flagsHtml = notionFlags.length === 0 ? '' : `
-  <div class="bg-amber-50 dark:bg-amber-950/50 rounded-2xl shadow p-4">
-    <h2 class="font-bold mb-1">🚩 要修正フラグ（${notionFlags.length}）</h2>
-    <div class="text-[11px] text-slate-400 mb-2">Notionに保存済み。「これらの穴を作って」と指示すればClaudeが該当箇所の穴を生成します</div>
-    ${notionFlags.map(f => `
-      <div class="flex items-start gap-2 py-1.5 border-b border-amber-100 dark:border-amber-900 last:border-0">
-        <div class="flex-1">
-          <div class="text-sm font-medium">${esc(f.section)} <span class="text-[11px] text-slate-400">${esc(f.heading || '')}</span></div>
-          ${f.note ? `<div class="text-xs text-amber-700 dark:text-amber-300">${esc(f.note)}</div>` : ''}
-        </div>
-        <button onclick="markFlagDone('${f.pageId}')" class="text-[11px] text-slate-400 px-2 py-1 pressable">✓済</button>
-      </div>`).join('')}
-  </div>`;
-
-  box.innerHTML = flagsHtml + `
+  box.innerHTML = `
   <div class="grid grid-cols-3 gap-2">
     <div class="bg-gradient-to-br from-indigo-500 to-violet-600 text-white rounded-2xl p-3 text-center shadow">
       <div class="text-2xl font-extrabold">${totalAns}</div><div class="text-[11px] opacity-90">累計回答</div>
