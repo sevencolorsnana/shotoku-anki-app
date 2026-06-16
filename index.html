@@ -296,7 +296,7 @@
 
 <script>
 'use strict';
-const APP_VER = 'v28';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v29';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 // 各題の大見出し〔n〕の構成（穴の有無に関わらず存在する見出し番号）
 const SECTION_STRUCT = {"1-1":["1","2","3","4","5"],"1-2":["1","2","3","4"],"1-3":["1","2","3","4","5","6"],"2-1":["1","2","3","4","5","6","7","8"],"2-2":["1","2"],"2-3":["1","2","3","4","5","6"],"2-4":["1","2","3","4","5","6","7","8","9","10"],"2-5":["1","2","3","4","5","6","7"],"2-6":["1","2","3","4","5","6"],"2-7":["1","2","3"],"2-8":["1","2","3"],"2-9":["1","2","3","4","5"],"2-10":["1","2"],"2-11":["1","2"],"2-12":["1","2","3"],"2-13":["1","2","3","4","5"],"2-14":["1","2","3","4","5"],"2-15":["1","2","3","4"],"2-16":["1","2"],"2-17":["1","2"],"2-18":["1","2","3","4"],"2-19":["1","2","3","4"],"2-20":["1","2","3"],"2-21":["1","2","3","4"],"2-22":["1","2","3","4","5","6"],"2-23":["1","2","3"],"2-24":["1","2","3","4","5"],"2-25":["1","2","3","4"],"2-26":["1","2"],"2-27":["1","2","3","4"],"2-28":["1","2"],"3-1":["1","2","3","4","5","6","7","8","9"],"3-2":["1","2","3","4","5","6","7","8"],"3-3":["1","2","3","4","5","6","7","8","9"],"3-4":["1","2","3","4","5"],"3-5":["1","2","3","4","5"],"3-6":["1","2","3","4"],"3-7":["1","2","3","4"],"3-8":["1","2","3","4"],"4-1":["1","2","3","4","5","6","7","8","9"],"4-2":["1","2","3","4","5","6","7","8","9","10"],"4-3":["1","2","3"],"5-1":["1","2","3","4"],"5-2":["1","2","3"],"5-3":["1","2","3","4","5"],"5-4":["1","2","3","4","5","6","7","8"],"5-5":["1","2"],"5-6":["1","2"],"6-1":["1","2","3","4","5","6"],"6-2":["1","2","3","4","5","6"],"6-3":["1","2","3","4","5"],"6-4":["1","2"],"6-5":["1","2","3","4"],"6-6":["1","2","3","4"],"6-7":["1","2","3","4","5"],"6-8":["1","2","3","4"],"6-9":["1","2","3","4","5","6","7","8","9","10","11","12","13"],"7-1":["1","2","3","4"],"7-2":["1","2","3","4"],"7-3":["1","2","3","4","5","6","7","8","9"],"7-4":["1","2","3","4","5","6"],"7-5":["1","2","3","4","5","6","7","8"],"7-6":["1","2","3","4","5","6","7"],"8-1":["1","2","3"],"8-2":["1","2","3","4","5","6"],"9-1":["1","2","3","4","5","6"],"9-2":["1","2","3","4","5","6","7"],"9-3":["1","2","3","4","5","6","7"],"9-4":["1","2","3","4","5"],"10-1":["1","2","3","4"],"10-2":["1","2","3","4"]};
@@ -426,6 +426,7 @@ function loadState() {
     if (s.range !== (localStorage.getItem('rangeSel') || 'null')) return false;
     cards = s.cards; queueIdx = s.queueIdx; sessionResults = s.sessionResults || {};
     baseCards = s.baseCards && s.baseCards.length ? s.baseCards : cards.slice();
+    clearSecTextCache();
     wrongCards = baseCards.filter(c => (s.wrongIds || []).includes(c.id));
     scoped = false; inWrongReview = false; showSecPanels = true; streak = s.streak || 0;
     return cards.length > 0;
@@ -528,7 +529,7 @@ async function loadCards(force) {
       bySec[s].sort((a, b) => a.holeNum - b.holeNum);
       cards = cards.concat(bySec[s]);
     }
-    baseCards = cards.slice();
+    baseCards = cards.slice(); clearSecTextCache();
     queueIdx = 0; wrongCards = []; sessionResults = {}; streak = 0;
     scoped = false; inWrongReview = false; showSecPanels = true;
     undoStack = []; updateUndoBtn();
@@ -545,6 +546,22 @@ async function loadCards(force) {
 // ── 出題 ──
 function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
+// 題全体の本文を組み立て（見出しごとの本文を順に連結、全穴を〔●n〕に）。題内で本文が統一される。
+let _secTextCache = {};
+function clearSecTextCache() { _secTextCache = {}; }
+function fullSectionText(sec) {
+  if (_secTextCache[sec]) return _secTextCache[sec];
+  const seen = new Set(), parts = [];
+  for (const card of baseCards) {
+    if (card.section !== sec || seen.has(card.heading)) continue;
+    seen.add(card.heading);
+    parts.push(card.question.replace('〔_〕', `〔●${card.holeNum}〕`));
+  }
+  const full = parts.join('\n');
+  _secTextCache[sec] = full;
+  return full;
+}
+
 function renderCard() {
   removeAnsPop();
   const c = cards[queueIdx];
@@ -557,8 +574,9 @@ function renderCard() {
   $('wrongBadge').classList.toggle('hidden', !wrongMap[c.id]);
   renderRepairBanner(c);
 
+  // 題全体を組み立て（同題の全穴で本文を統一）、表示中の穴だけアクティブに
+  let raw = fullSectionText(c.section).replace(`〔●${c.holeNum}〕`, '〔_〕');
   // 出題穴の直前の読点（、。改行）から穴までを文脈ハイライト（文脈理解のため）
-  let raw = c.question;
   const hi = raw.indexOf('〔_〕');
   if (hi >= 0) {
     let st = 0;
@@ -1127,6 +1145,7 @@ async function deleteHole() {
     const wi = wrongCards.indexOf(c); if (wi >= 0) wrongCards.splice(wi, 1);
     delete wrongMap[c.id];
     cards.splice(queueIdx, 1);
+    clearSecTextCache();
     saveState();
     closeEdit();
     toast('🗑 穴を削除しました', 'bg-slate-600');
@@ -1163,6 +1182,7 @@ function applyEditLocally(c, oldQ, newQ) {
     const nm = d.newBlock.replaceAll(`〔●${lc.holeNum}〕`, '〔_〕');
     if (om && lc.question.includes(om)) lc.question = lc.question.replaceAll(om, nm);
   }
+  clearSecTextCache();
 }
 
 async function saveEdit() {
@@ -1261,6 +1281,7 @@ async function saveAdd() {
     // 今日のキューに即時挿入（現在位置の直後）
     baseCards.push(newCard);
     cards.splice(queueIdx + 1, 0, newCard);
+    clearSecTextCache();
     saveState();
     closeAdd();
     toast('✓ 穴を追加しました（次に出題されます）', 'bg-emerald-600');
@@ -1308,10 +1329,10 @@ async function propagateEdit(c, oldQ, newQ) {
     }, 'PATCH');
     n++;
     // 読み込み済みカードにも反映
-    const lc = cards.find(x => x.pageId === pg.id);
+    const lc = baseCards.find(x => x.pageId === pg.id);
     if (lc) lc.question = fixed;
   }
-  if (n) saveState();
+  if (n) { clearSecTextCache(); saveState(); }
   return n;
 }
 
