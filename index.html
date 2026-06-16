@@ -312,7 +312,7 @@
 
 <script>
 'use strict';
-const APP_VER = 'v36';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v37';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 // 各題の大見出し〔n〕の構成（穴の有無に関わらず存在する見出し番号）
 const SECTION_STRUCT = {"1-1":["1","2","3","4","5"],"1-2":["1","2","3","4"],"1-3":["1","2","3","4","5","6"],"2-1":["1","2","3","4","5","6","7","8"],"2-2":["1","2"],"2-3":["1","2","3","4","5","6"],"2-4":["1","2","3","4","5","6","7","8","9","10"],"2-5":["1","2","3","4","5","6","7"],"2-6":["1","2","3","4","5","6"],"2-7":["1","2","3"],"2-8":["1","2","3"],"2-9":["1","2","3","4","5"],"2-10":["1","2"],"2-11":["1","2"],"2-12":["1","2","3"],"2-13":["1","2","3","4","5"],"2-14":["1","2","3","4","5"],"2-15":["1","2","3","4"],"2-16":["1","2"],"2-17":["1","2"],"2-18":["1","2","3","4"],"2-19":["1","2","3","4"],"2-20":["1","2","3"],"2-21":["1","2","3","4"],"2-22":["1","2","3","4","5","6"],"2-23":["1","2","3"],"2-24":["1","2","3","4","5"],"2-25":["1","2","3","4"],"2-26":["1","2"],"2-27":["1","2","3","4"],"2-28":["1","2"],"3-1":["1","2","3","4","5","6","7","8","9"],"3-2":["1","2","3","4","5","6","7","8"],"3-3":["1","2","3","4","5","6","7","8","9"],"3-4":["1","2","3","4","5"],"3-5":["1","2","3","4","5"],"3-6":["1","2","3","4"],"3-7":["1","2","3","4"],"3-8":["1","2","3","4"],"4-1":["1","2","3","4","5","6","7","8","9"],"4-2":["1","2","3","4","5","6","7","8","9","10"],"4-3":["1","2","3"],"5-1":["1","2","3","4"],"5-2":["1","2","3"],"5-3":["1","2","3","4","5"],"5-4":["1","2","3","4","5","6","7","8"],"5-5":["1","2"],"5-6":["1","2"],"6-1":["1","2","3","4","5","6"],"6-2":["1","2","3","4","5","6"],"6-3":["1","2","3","4","5"],"6-4":["1","2"],"6-5":["1","2","3","4"],"6-6":["1","2","3","4"],"6-7":["1","2","3","4","5"],"6-8":["1","2","3","4"],"6-9":["1","2","3","4","5","6","7","8","9","10","11","12","13"],"7-1":["1","2","3","4"],"7-2":["1","2","3","4"],"7-3":["1","2","3","4","5","6","7","8","9"],"7-4":["1","2","3","4","5","6"],"7-5":["1","2","3","4","5","6","7","8"],"7-6":["1","2","3","4","5","6","7"],"8-1":["1","2","3"],"8-2":["1","2","3","4","5","6"],"9-1":["1","2","3","4","5","6"],"9-2":["1","2","3","4","5","6","7"],"9-3":["1","2","3","4","5","6","7"],"9-4":["1","2","3","4","5"],"10-1":["1","2","3","4"],"10-2":["1","2","3","4"]};
@@ -1227,16 +1227,14 @@ function diffBlock(oldS, newS, ctx = 14) {
   };
 }
 
-// 読み込み済みカード（同題）に編集差分を同期適用する
-function applyEditLocally(c, oldQ, newQ) {
-  const mk = `〔●${c.holeNum}〕`;
-  const d = diffBlock(oldQ.replaceAll('〔_〕', mk), newQ.replaceAll('〔_〕', mk));
-  if (!d || d.oldBlock.length < 4) return;
+// 読み込み済みカード（同じ見出し）に編集を反映。
+// 同見出しの全穴は同一本文を共有するので、編集後本文から各穴の問題文を直接再生成する（前後どちらの穴にも確実に反映）
+function applyEditLocally(c, newQ) {
+  const base = newQ.replace('〔_〕', `〔●${c.holeNum}〕`); // 全穴をマーカーにした見出し本文
   for (const lc of baseCards) {
-    if (lc === c || lc.section !== c.section) continue;
-    const om = d.oldBlock.replaceAll(`〔●${lc.holeNum}〕`, '〔_〕');
-    const nm = d.newBlock.replaceAll(`〔●${lc.holeNum}〕`, '〔_〕');
-    if (om && lc.question.includes(om)) lc.question = lc.question.replaceAll(om, nm);
+    if (lc === c || lc.section !== c.section || lc.heading !== c.heading) continue;
+    const mk = `〔●${lc.holeNum}〕`;
+    if (base.includes(mk)) lc.question = base.replace(mk, '〔_〕');
   }
   clearSecTextCache();
 }
@@ -1254,16 +1252,15 @@ async function saveEdit() {
         '正解': { rich_text: [{ text: { content: a.slice(0, 500) } }] },
       },
     }, 'PATCH');
-    const oldQ = c.question;
     c.question = q; c.answer = a;
-    // 読み込み済みの同題カードへ即時反映（次の穴ですぐ反映されるように先に同期更新）
-    applyEditLocally(c, oldQ, q);
+    // 読み込み済みの同見出しカードへ即時反映（前後どちらの穴にも確実に反映）
+    applyEditLocally(c, q);
     saveState();
     closeEdit();
     renderCard();
     toast('✓ 保存。他の穴へ反映中…', 'bg-emerald-600');
     // 他の穴への反映も直列キューで実行（連続編集でも後の更新が最後に確定）
-    queueBgSync(() => propagateEdit(c, oldQ, q));
+    queueBgSync(() => propagateEdit(c, q));
   } catch (e) {
     $('editMsg').textContent = '⚠ ' + e.message;
     $('editSaveBtn').disabled = false;
@@ -1506,12 +1503,9 @@ async function saveAdd() {
 }
 
 // 同じ題のすべての穴に問題文の修正を反映する
-async function propagateEdit(c, oldQ, newQ) {
-  // 自分の穴マーカーを正規形（〔●n〕）に変換してから文脈つき差分を取る
-  const mk = `〔●${c.holeNum}〕`;
-  const d = diffBlock(oldQ.replaceAll('〔_〕', mk), newQ.replaceAll('〔_〕', mk));
-  if (!d || d.oldBlock.length < 4) return 0;
-  const { oldBlock, newBlock } = d;
+async function propagateEdit(c, newQ) {
+  // 編集後本文（全穴をマーカー化した見出し本文）から、同見出しの各穴の問題文を直接再生成
+  const base = newQ.replace('〔_〕', `〔●${c.holeNum}〕`);
 
   // 同じ題の全穴をNotionから取得
   let pages = [], cursor;
@@ -1529,18 +1523,18 @@ async function propagateEdit(c, oldQ, newQ) {
   let n = 0;
   for (const pg of pages) {
     if (pg.id === c.pageId) continue;
-    const text = prop(pg.properties, '問題文', 'rich_text');
+    // 同じ見出しの穴だけ対象（他の見出しは本文が異なる）
+    if (prop(pg.properties, '大見出し', 'rich_text') !== c.heading) continue;
     const hn = prop(pg.properties, '穴番号', 'number');
-    // その穴自身の位置は 〔_〕 になっているので差分側を変換
-    const om = oldBlock.replaceAll(`〔●${hn}〕`, '〔_〕');
-    const nm = newBlock.replaceAll(`〔●${hn}〕`, '〔_〕');
-    if (!om || !text.includes(om)) continue;
-    const fixed = text.replaceAll(om, nm);
+    const mk = `〔●${hn}〕`;
+    if (!base.includes(mk)) continue;
+    const fixed = base.replace(mk, '〔_〕');
+    const text = prop(pg.properties, '問題文', 'rich_text');
+    if (fixed === text) continue; // 変化なし
     await notion('/v1/pages/' + pg.id, {
       properties: { '問題文': { rich_text: [{ text: { content: fixed.slice(0, 2000) } }] } },
     }, 'PATCH');
     n++;
-    // 読み込み済みカードにも反映
     const lc = baseCards.find(x => x.pageId === pg.id);
     if (lc) lc.question = fixed;
   }
