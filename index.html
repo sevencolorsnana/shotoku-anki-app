@@ -21,6 +21,8 @@
   .mask-wrong { color: #ef4444; font-weight: 700; padding: 0 2px; }
   .clause { background: rgba(250,204,21,.22); border-radius: 4px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
   .dark .clause { background: rgba(250,204,21,.16); }
+  .bodyhead { color: #4f46e5; font-weight: 700; }
+  .dark .bodyhead { color: #a5b4fc; }
   .answer-reveal { color: #059669; font-weight: 700; }
   .dark .answer-reveal { color: #34d399; }
   .confetti-piece { position: fixed; width: 9px; height: 14px; top: -20px; z-index: 90; pointer-events: none; animation: fall linear forwards; }
@@ -310,7 +312,7 @@
 
 <script>
 'use strict';
-const APP_VER = 'v33';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v34';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 // 各題の大見出し〔n〕の構成（穴の有無に関わらず存在する見出し番号）
 const SECTION_STRUCT = {"1-1":["1","2","3","4","5"],"1-2":["1","2","3","4"],"1-3":["1","2","3","4","5","6"],"2-1":["1","2","3","4","5","6","7","8"],"2-2":["1","2"],"2-3":["1","2","3","4","5","6"],"2-4":["1","2","3","4","5","6","7","8","9","10"],"2-5":["1","2","3","4","5","6","7"],"2-6":["1","2","3","4","5","6"],"2-7":["1","2","3"],"2-8":["1","2","3"],"2-9":["1","2","3","4","5"],"2-10":["1","2"],"2-11":["1","2"],"2-12":["1","2","3"],"2-13":["1","2","3","4","5"],"2-14":["1","2","3","4","5"],"2-15":["1","2","3","4"],"2-16":["1","2"],"2-17":["1","2"],"2-18":["1","2","3","4"],"2-19":["1","2","3","4"],"2-20":["1","2","3"],"2-21":["1","2","3","4"],"2-22":["1","2","3","4","5","6"],"2-23":["1","2","3"],"2-24":["1","2","3","4","5"],"2-25":["1","2","3","4"],"2-26":["1","2"],"2-27":["1","2","3","4"],"2-28":["1","2"],"3-1":["1","2","3","4","5","6","7","8","9"],"3-2":["1","2","3","4","5","6","7","8"],"3-3":["1","2","3","4","5","6","7","8","9"],"3-4":["1","2","3","4","5"],"3-5":["1","2","3","4","5"],"3-6":["1","2","3","4"],"3-7":["1","2","3","4"],"3-8":["1","2","3","4"],"4-1":["1","2","3","4","5","6","7","8","9"],"4-2":["1","2","3","4","5","6","7","8","9","10"],"4-3":["1","2","3"],"5-1":["1","2","3","4"],"5-2":["1","2","3"],"5-3":["1","2","3","4","5"],"5-4":["1","2","3","4","5","6","7","8"],"5-5":["1","2"],"5-6":["1","2"],"6-1":["1","2","3","4","5","6"],"6-2":["1","2","3","4","5","6"],"6-3":["1","2","3","4","5"],"6-4":["1","2"],"6-5":["1","2","3","4"],"6-6":["1","2","3","4"],"6-7":["1","2","3","4","5"],"6-8":["1","2","3","4"],"6-9":["1","2","3","4","5","6","7","8","9","10","11","12","13"],"7-1":["1","2","3","4"],"7-2":["1","2","3","4"],"7-3":["1","2","3","4","5","6","7","8","9"],"7-4":["1","2","3","4","5","6"],"7-5":["1","2","3","4","5","6","7","8"],"7-6":["1","2","3","4","5","6","7"],"8-1":["1","2","3"],"8-2":["1","2","3","4","5","6"],"9-1":["1","2","3","4","5","6"],"9-2":["1","2","3","4","5","6","7"],"9-3":["1","2","3","4","5","6","7"],"9-4":["1","2","3","4","5"],"10-1":["1","2","3","4"],"10-2":["1","2","3","4"]};
@@ -620,6 +622,8 @@ function renderCard() {
 
   // 見出し単位の本文をそのまま表示（題全体の連結はしない＝文章が崩れない）
   let raw = c.question;
+  // 先頭の見出し行〔n〕…に色を付ける
+  raw = raw.replace(/^(〔\d+〕[^\n]*)/, '‹‹HD››$1‹‹/HD››');
   // 出題穴の直前の読点（、。改行）から穴までを文脈ハイライト（文脈理解のため）
   const hi = raw.indexOf('〔_〕');
   if (hi >= 0) {
@@ -633,6 +637,7 @@ function renderCard() {
   // 出題穴と伏せ字を同じ3文字幅に統一（問題が進んでも本文がズレない）
   const curCls = wrongMap[c.id] ? 'hole-wrong' : 'hole';
   $('qText').innerHTML = esc(raw)
+    .split('‹‹HD››').join('<span class="bodyhead">').split('‹‹/HD››').join('</span>')
     .split('‹‹CL››').join('<span class="clause">').split('‹‹/CL››').join('</span>')
     .replace(/〔_〕/g, `<span class="${curCls} blink">〔？〕</span>`)
     .replace(/〔●(\d+)〕/g, (m, n) => {
@@ -725,9 +730,16 @@ function reveal() {
       let left = Math.min(Math.max(r.left, 12), vw - pw - 12);
       // 縦: 穴の上。入らなければ下。
       const headerH = 70;
+      // 常に穴の上に表示。上に入らないときだけスクロールで余白を作って上に出す
       let top = r.top - ph - 10;
       let below = false;
-      if (top < headerH) { top = r.bottom + 10; below = true; }
+      if (top < headerH) {
+        const sc = $('qScroll');
+        sc.scrollTop -= (headerH - top);
+        const r2 = el.getBoundingClientRect();
+        top = r2.top - ph - 10;
+        if (top < headerH) { top = r2.bottom + 10; below = true; }
+      }
       pop.style.left = left + 'px';
       pop.style.top = top + 'px';
       // しっぽを穴の中央に向ける
@@ -1366,26 +1378,11 @@ async function applyHoleSelection() {
   T += plainText.slice(cur);
 
   $('holeSelBtn').disabled = true;
-  $('holeSelMsg').textContent = '保存中...';
+  $('holeSelMsg').textContent = '作成中...';
+  const qNew = T.replace(`〔●${newNum}〕`, '〔_〕');
+  const id = `${sec}_a${Date.now().toString().slice(-6)}`;
   try {
-    // 1) 残す穴の問題文を更新
-    for (const h of keep) {
-      if (!h.pageId) continue;
-      const q = T.replace(`〔●${h.num}〕`, '〔_〕');
-      await notion('/v1/pages/' + h.pageId, { properties: { '問題文': { rich_text: [{ text: { content: q.slice(0, 2000) } }] } } }, 'PATCH');
-      const lc = baseCards.find(x => x.pageId === h.pageId); if (lc) lc.question = q;
-    }
-    // 2) 統合で消える穴をアーカイブ
-    for (const h of absorbed) {
-      if (!h.pageId) continue;
-      await notion('/v1/pages/' + h.pageId, { archived: true }, 'PATCH');
-      baseCards = baseCards.filter(x => x.pageId !== h.pageId);
-      const ci = cards.findIndex(x => x.pageId === h.pageId); if (ci >= 0) cards.splice(ci, 1);
-      const wc = wrongCards.findIndex(x => x.pageId === h.pageId); if (wc >= 0) wrongCards.splice(wc, 1);
-    }
-    // 3) 新しい穴を作成
-    const qNew = T.replace(`〔●${newNum}〕`, '〔_〕');
-    const id = `${sec}_a${Date.now().toString().slice(-6)}`;
+    // 新しい穴を作成（pageIdが必要なのでここだけ待つ）
     const res = await notion('/v1/pages', {
       parent: { database_id: cfg.db }, properties: {
         '穴ID': { title: [{ text: { content: id } }] },
@@ -1399,6 +1396,16 @@ async function applyHoleSelection() {
         '難易度係数': { number: 2.5 }, '正答回数': { number: 0 }, '出題回数': { number: 0 },
       },
     });
+    // ローカルを即時更新してUIを反映（残り穴のNotion更新は背景で実行）
+    for (const h of keep) {
+      const lc = baseCards.find(x => x.pageId === h.pageId);
+      if (lc) lc.question = T.replace(`〔●${h.num}〕`, '〔_〕');
+    }
+    for (const h of absorbed) {
+      baseCards = baseCards.filter(x => x.pageId !== h.pageId);
+      const ci = cards.findIndex(x => x.pageId === h.pageId); if (ci >= 0) cards.splice(ci, 1);
+      const wc = wrongCards.findIndex(x => x.pageId === h.pageId); if (wc >= 0) wrongCards.splice(wc, 1);
+    }
     const newCard = {
       pageId: res.id, id, section: sec, title: SECTION_TITLES[sec] || '', heading,
       question: qNew, answer: newAnswer, holeNum: newNum, rank: '★',
@@ -1406,7 +1413,6 @@ async function applyHoleSelection() {
     };
     baseCards.push(newCard);
     resortSection(sec);
-    // 出題キュー内の当該題ブロックを本文順に並べ替え（新穴を含む）。他題の順序は維持
     const curId = cards[queueIdx] ? cards[queueIdx].id : null;
     const idxs = cards.map((c, i) => c.section === sec ? i : -1).filter(i => i >= 0);
     if (idxs.length) {
@@ -1422,9 +1428,23 @@ async function applyHoleSelection() {
     clearSecTextCache();
     saveState();
     closeHoleSel();
-    toast(absorbed.length >= 2 || (absorbed.length && newAnswer !== absorbed[0].answer) ?
-      `✓ ${absorbed.length}個の穴を統合しました` : '✓ 穴を追加しました', 'bg-emerald-600');
+    toast(absorbed.length ? `✓ ${absorbed.length}個の穴を統合（同期中…）` : '✓ 穴を追加（同期中…）', 'bg-emerald-600');
     renderCard();
+    // 背景でNotionの残り更新（残す穴の問題文・統合穴のアーカイブ）
+    (async () => {
+      try {
+        for (const h of keep) {
+          if (!h.pageId) continue;
+          const q = T.replace(`〔●${h.num}〕`, '〔_〕');
+          await notion('/v1/pages/' + h.pageId, { properties: { '問題文': { rich_text: [{ text: { content: q.slice(0, 2000) } }] } } }, 'PATCH');
+        }
+        for (const h of absorbed) {
+          if (!h.pageId) continue;
+          await notion('/v1/pages/' + h.pageId, { archived: true }, 'PATCH');
+        }
+        toast('✓ 同期完了', 'bg-emerald-600');
+      } catch (e) { toast('⚠ 背景同期エラー: ' + e.message, 'bg-rose-500'); }
+    })();
   } catch (e) {
     $('holeSelMsg').textContent = '⚠ ' + e.message;
   }
