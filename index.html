@@ -315,7 +315,7 @@
 
 <script>
 'use strict';
-const APP_VER = 'v38';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v39';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 // 各題の大見出し〔n〕の構成（穴の有無に関わらず存在する見出し番号）
 const SECTION_STRUCT = {"1-1":["1","2","3","4","5"],"1-2":["1","2","3","4"],"1-3":["1","2","3","4","5","6"],"2-1":["1","2","3","4","5","6","7","8"],"2-2":["1","2"],"2-3":["1","2","3","4","5","6"],"2-4":["1","2","3","4","5","6","7","8","9","10"],"2-5":["1","2","3","4","5","6","7"],"2-6":["1","2","3","4","5","6"],"2-7":["1","2","3"],"2-8":["1","2","3"],"2-9":["1","2","3","4","5"],"2-10":["1","2"],"2-11":["1","2"],"2-12":["1","2","3"],"2-13":["1","2","3","4","5"],"2-14":["1","2","3","4","5"],"2-15":["1","2","3","4"],"2-16":["1","2"],"2-17":["1","2"],"2-18":["1","2","3","4"],"2-19":["1","2","3","4"],"2-20":["1","2","3"],"2-21":["1","2","3","4"],"2-22":["1","2","3","4","5","6"],"2-23":["1","2","3"],"2-24":["1","2","3","4","5"],"2-25":["1","2","3","4"],"2-26":["1","2"],"2-27":["1","2","3","4"],"2-28":["1","2"],"3-1":["1","2","3","4","5","6","7","8","9"],"3-2":["1","2","3","4","5","6","7","8"],"3-3":["1","2","3","4","5","6","7","8","9"],"3-4":["1","2","3","4","5"],"3-5":["1","2","3","4","5"],"3-6":["1","2","3","4"],"3-7":["1","2","3","4"],"3-8":["1","2","3","4"],"4-1":["1","2","3","4","5","6","7","8","9"],"4-2":["1","2","3","4","5","6","7","8","9","10"],"4-3":["1","2","3"],"5-1":["1","2","3","4"],"5-2":["1","2","3"],"5-3":["1","2","3","4","5"],"5-4":["1","2","3","4","5","6","7","8"],"5-5":["1","2"],"5-6":["1","2"],"6-1":["1","2","3","4","5","6"],"6-2":["1","2","3","4","5","6"],"6-3":["1","2","3","4","5"],"6-4":["1","2"],"6-5":["1","2","3","4"],"6-6":["1","2","3","4"],"6-7":["1","2","3","4","5"],"6-8":["1","2","3","4"],"6-9":["1","2","3","4","5","6","7","8","9","10","11","12","13"],"7-1":["1","2","3","4"],"7-2":["1","2","3","4"],"7-3":["1","2","3","4","5","6","7","8","9"],"7-4":["1","2","3","4","5","6"],"7-5":["1","2","3","4","5","6","7","8"],"7-6":["1","2","3","4","5","6","7"],"8-1":["1","2","3"],"8-2":["1","2","3","4","5","6"],"9-1":["1","2","3","4","5","6"],"9-2":["1","2","3","4","5","6","7"],"9-3":["1","2","3","4","5","6","7"],"9-4":["1","2","3","4","5"],"10-1":["1","2","3","4"],"10-2":["1","2","3","4"]};
@@ -413,6 +413,31 @@ let sessionResults = {};
 let wrongCards = [];
 let wrongMap = JSON.parse(localStorage.getItem('wrongMap') || '{}');
 let history = JSON.parse(localStorage.getItem('history') || '{}'); // section -> {ok, ng, title, heads:{n:{ok,ng}}}
+// 日付つき回答ログ（本日/過去N日の正答率算出用。端末ローカル）
+let answerLog = JSON.parse(localStorage.getItem('answerLog') || '[]');
+let statPeriod = 'all'; // all=累計(Notion) / today / 7d
+function logAnswer(c, ok) {
+  answerLog.push({ d: todayStr(), s: c.section, h: headNum(c), ok: ok ? 1 : 0 });
+  if (answerLog.length > 6000) answerLog = answerLog.slice(-5000);
+  localStorage.setItem('answerLog', JSON.stringify(answerLog));
+}
+function unlogAnswer(c) {
+  for (let i = answerLog.length - 1; i >= 0; i--) { if (answerLog[i].s === c.section && answerLog[i].h === headNum(c)) { answerLog.splice(i, 1); break; } }
+  localStorage.setItem('answerLog', JSON.stringify(answerLog));
+}
+function statsFromLog(days) {
+  const secs = {};
+  let cutoff = null;
+  if (days) { const d = new Date(); d.setDate(d.getDate() - (days - 1)); cutoff = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  for (const e of answerLog) {
+    if (cutoff && e.d < cutoff) continue;
+    const o = secs[e.s] = secs[e.s] || { ok: 0, ng: 0, title: (SECTION_TITLES[e.s] || ''), heads: {} };
+    e.ok ? o.ok++ : o.ng++;
+    const hh = o.heads[e.h] = o.heads[e.h] || { ok: 0, ng: 0 }; e.ok ? hh.ok++ : hh.ng++;
+  }
+  return secs;
+}
+function setStatPeriod(p) { statPeriod = p; renderStats(); }
 let streak = 0;
 let inWrongReview = false;
 let lastAnsweredSection = null;
@@ -735,7 +760,9 @@ function reveal() {
     document.body.appendChild(pop);
 
     const place = () => {
-      const r = el.getBoundingClientRect();
+      // 折り返した穴は最初の行ボックスを基準にする（位置ズレ防止）
+      const rects = el.getClientRects();
+      const r = rects.length ? rects[0] : el.getBoundingClientRect();
       const vw = document.documentElement.clientWidth;
       const pw = pop.offsetWidth, ph = pop.offsetHeight;
       // 横: 穴の左端に合わせ、画面内にクランプ
@@ -748,7 +775,8 @@ function reveal() {
       if (top < headerH) {
         const sc = $('qScroll');
         sc.scrollTop -= (headerH - top);
-        const r2 = el.getBoundingClientRect();
+        const rr = el.getClientRects();
+        const r2 = rr.length ? rr[0] : el.getBoundingClientRect();
         top = r2.top - ph - 10;
         if (top < headerH) { top = r2.bottom + 10; below = true; }
       }
@@ -825,6 +853,7 @@ function undo() {
       const hn = headNum(c);
       if (h.heads && h.heads[hn]) { u.ok ? h.heads[hn].ok-- : h.heads[hn].ng--; }
       localStorage.setItem('history', JSON.stringify(history));
+      unlogAnswer(c);
     }
   }
   if (u.wasWrong) wrongMap[c.id] = true; else delete wrongMap[c.id];
@@ -882,6 +911,7 @@ function judge(ok) {
     const hh = h.heads[hn] = h.heads[hn] || { ok: 0, ng: 0 };
     ok ? hh.ok++ : hh.ng++;
     localStorage.setItem('history', JSON.stringify(history));
+    logAnswer(c, ok);
   }
 
   if (ok) { delete wrongMap[c.id]; streak++; }
@@ -1575,9 +1605,11 @@ function tidSort(a, b) {
 }
 function renderStats() {
   const box = $('view-stats');
-  // 集計元: Notion全題集計があればそれ（累計・端末共通）、無ければ当日のhistory
-  const STAT = (fullStats && fullStats.secs) ? fullStats.secs : history;
-  const usingFull = !!(fullStats && fullStats.secs);
+  // 集計元: 累計=Notion全題集計（無ければhistory）／本日・過去7日=ローカル回答ログ
+  const STAT = statPeriod === 'today' ? statsFromLog(1)
+    : statPeriod === '7d' ? statsFromLog(7)
+      : ((fullStats && fullStats.secs) ? fullStats.secs : history);
+  const usingFull = statPeriod === 'all' && !!(fullStats && fullStats.secs);
   const secs = Object.keys(STAT).sort(tidSort);
   let totalAns = 0, totalOk = 0;
   for (const s of secs) { totalAns += STAT[s].ok + STAT[s].ng; totalOk += STAT[s].ok; }
@@ -1590,17 +1622,22 @@ function renderStats() {
 
   // 未学習・薄い題（回答数が少ない題）
   const thin = secs.filter(s => STAT[s].ok + STAT[s].ng < 10);
-  const aggInfo = usingFull
-    ? `Notion全題集計（${new Date(fullStats.ts).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}時点・端末共通の累計）`
-    : '当日の記録のみ。下のボタンでNotionから全題の累計を集計できます';
+  const aggInfo = statPeriod === 'today' ? '本日の回答（この端末）'
+    : statPeriod === '7d' ? '過去7日間の回答（この端末）'
+      : usingFull
+        ? `累計（${new Date(fullStats.ts).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}時点・端末共通）`
+        : '累計：下のボタンでNotionから集計できます';
+  const periodBtns = [['today', '本日'], ['7d', '過去7日'], ['all', '累計']]
+    .map(([p, lbl]) => `<button onclick="setStatPeriod('${p}')" class="px-3 py-1 text-xs rounded-lg pressable ${statPeriod === p ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700'}">${lbl}</button>`).join('');
 
+  const pLbl = statPeriod === 'today' ? '本日' : statPeriod === '7d' ? '7日間' : '累計';
   box.innerHTML = `
   <div class="grid grid-cols-3 gap-2">
     <div class="bg-gradient-to-br from-indigo-500 to-violet-600 text-white rounded-2xl p-3 text-center shadow">
-      <div class="text-2xl font-extrabold">${totalAns}</div><div class="text-[11px] opacity-90">累計回答</div>
+      <div class="text-2xl font-extrabold">${totalAns}</div><div class="text-[11px] opacity-90">${pLbl}回答</div>
     </div>
     <div class="bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-2xl p-3 text-center shadow">
-      <div class="text-2xl font-extrabold">${totalAns ? Math.round(totalOk / totalAns * 100) : 0}%</div><div class="text-[11px] opacity-90">累計正答率</div>
+      <div class="text-2xl font-extrabold">${totalAns ? Math.round(totalOk / totalAns * 100) : 0}%</div><div class="text-[11px] opacity-90">${pLbl}正答率</div>
     </div>
     <div class="bg-gradient-to-br from-rose-500 to-pink-600 text-white rounded-2xl p-3 text-center shadow">
       <div class="text-2xl font-extrabold">${Object.keys(wrongMap).length}</div><div class="text-[11px] opacity-90">要復習の穴</div>
@@ -1623,8 +1660,9 @@ function renderStats() {
 
   <div class="bg-white dark:bg-slate-900 rounded-2xl shadow p-4">
     <h2 class="font-bold mb-1">📚 題ごとの正答率（タップで見出し別に展開）</h2>
+    <div class="flex gap-1.5 mb-1.5">${periodBtns}</div>
     <div class="text-[11px] text-slate-400 mb-1">${aggInfo}</div>
-    <button onclick="aggregateAllFromNotion()" class="mb-2 px-3 py-1.5 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-lg pressable">📊 Notionから全題を集計（更新）</button>
+    ${statPeriod === 'all' ? '<button onclick="aggregateAllFromNotion()" class="mb-2 px-3 py-1.5 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-lg pressable">📊 Notionから全題を集計（更新）</button>' : ''}
     ${secs.length === 0 ? '<div class="text-sm text-slate-400">まだ回答データがありません</div>' :
       secs.map(s => {
         const h = STAT[s], t = h.ok + h.ng, rate = t ? Math.round(h.ok / t * 100) : 0;
