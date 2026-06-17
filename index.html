@@ -23,6 +23,8 @@
   .dark .clause { background: rgba(250,204,21,.16); }
   .bodyhead { color: #4f46e5; font-weight: 700; }
   .dark .bodyhead { color: #a5b4fc; }
+  .subhead { color: #0891b2; font-weight: 600; }
+  .dark .subhead { color: #67e8f9; }
   .answer-reveal { color: #059669; font-weight: 700; }
   .dark .answer-reveal { color: #34d399; }
   .confetti-piece { position: fixed; width: 9px; height: 14px; top: -20px; z-index: 90; pointer-events: none; animation: fall linear forwards; }
@@ -170,6 +172,7 @@
       <div class="text-xl font-bold">柱の復習完了！</div>
       <div id="pillarDoneStats" class="text-sm text-slate-500"></div>
       <div class="flex flex-col gap-3 w-full max-w-[300px]">
+        <button id="pillarRetryWrong" onclick="pillarRetryWrong()" class="hidden px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl font-bold shadow-lg pressable">😤 間違えた題だけ復習</button>
         <button onclick="pillarRepeat()" class="px-6 py-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-2xl font-bold shadow-lg pressable">🔁 もう一度同じ範囲を復習</button>
         <button onclick="pillarBackStart()" class="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg pressable">↩ 戻る</button>
       </div>
@@ -312,7 +315,7 @@
 
 <script>
 'use strict';
-const APP_VER = 'v37';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v38';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 // 各題の大見出し〔n〕の構成（穴の有無に関わらず存在する見出し番号）
 const SECTION_STRUCT = {"1-1":["1","2","3","4","5"],"1-2":["1","2","3","4"],"1-3":["1","2","3","4","5","6"],"2-1":["1","2","3","4","5","6","7","8"],"2-2":["1","2"],"2-3":["1","2","3","4","5","6"],"2-4":["1","2","3","4","5","6","7","8","9","10"],"2-5":["1","2","3","4","5","6","7"],"2-6":["1","2","3","4","5","6"],"2-7":["1","2","3"],"2-8":["1","2","3"],"2-9":["1","2","3","4","5"],"2-10":["1","2"],"2-11":["1","2"],"2-12":["1","2","3"],"2-13":["1","2","3","4","5"],"2-14":["1","2","3","4","5"],"2-15":["1","2","3","4"],"2-16":["1","2"],"2-17":["1","2"],"2-18":["1","2","3","4"],"2-19":["1","2","3","4"],"2-20":["1","2","3"],"2-21":["1","2","3","4"],"2-22":["1","2","3","4","5","6"],"2-23":["1","2","3"],"2-24":["1","2","3","4","5"],"2-25":["1","2","3","4"],"2-26":["1","2"],"2-27":["1","2","3","4"],"2-28":["1","2"],"3-1":["1","2","3","4","5","6","7","8","9"],"3-2":["1","2","3","4","5","6","7","8"],"3-3":["1","2","3","4","5","6","7","8","9"],"3-4":["1","2","3","4","5"],"3-5":["1","2","3","4","5"],"3-6":["1","2","3","4"],"3-7":["1","2","3","4"],"3-8":["1","2","3","4"],"4-1":["1","2","3","4","5","6","7","8","9"],"4-2":["1","2","3","4","5","6","7","8","9","10"],"4-3":["1","2","3"],"5-1":["1","2","3","4"],"5-2":["1","2","3"],"5-3":["1","2","3","4","5"],"5-4":["1","2","3","4","5","6","7","8"],"5-5":["1","2"],"5-6":["1","2"],"6-1":["1","2","3","4","5","6"],"6-2":["1","2","3","4","5","6"],"6-3":["1","2","3","4","5"],"6-4":["1","2"],"6-5":["1","2","3","4"],"6-6":["1","2","3","4"],"6-7":["1","2","3","4","5"],"6-8":["1","2","3","4"],"6-9":["1","2","3","4","5","6","7","8","9","10","11","12","13"],"7-1":["1","2","3","4"],"7-2":["1","2","3","4"],"7-3":["1","2","3","4","5","6","7","8","9"],"7-4":["1","2","3","4","5","6"],"7-5":["1","2","3","4","5","6","7","8"],"7-6":["1","2","3","4","5","6","7"],"8-1":["1","2","3"],"8-2":["1","2","3","4","5","6"],"9-1":["1","2","3","4","5","6"],"9-2":["1","2","3","4","5","6","7"],"9-3":["1","2","3","4","5","6","7"],"9-4":["1","2","3","4","5"],"10-1":["1","2","3","4"],"10-2":["1","2","3","4"]};
@@ -562,11 +565,16 @@ async function loadCards(force) {
 function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
 // 穴の並びは holeNum ではなく「本文中の出現位置」で決める（途中追加でも順序が崩れない）
+// 各カード自身の〔_〕位置で並べる（マーカーを1文字に正規化して位置を比較）。
+// 代表1枚に依存しないので、追加穴も確実に本文位置どおりに割り込む。
+function holePos(card) {
+  const norm = (card.question || '').replace(/〔_〕|〔●\d+〕/g, m => m === '〔_〕' ? '\x02' : '\x01');
+  const i = norm.indexOf('\x02');
+  return i < 0 ? 1e9 : i;
+}
 function orderHeadingCards(hcards) {
   if (hcards.length <= 1) return hcards.slice();
-  const tmpl = hcards[0].question.replace('〔_〕', `〔●${hcards[0].holeNum}〕`);
-  return hcards.slice().sort((a, b) =>
-    tmpl.indexOf(`〔●${a.holeNum}〕`) - tmpl.indexOf(`〔●${b.holeNum}〕`));
+  return hcards.slice().sort((a, b) => holePos(a) - holePos(b));
 }
 function orderSectionCards(scards) {
   const byHead = {};
@@ -624,6 +632,9 @@ function renderCard() {
   let raw = c.question;
   // 先頭の見出し行〔n〕…に色を付ける
   raw = raw.replace(/^(〔\d+〕[^\n]*)/, '‹‹HD››$1‹‹/HD››');
+  // 小見出し ⑴⑵…（条文番号付き）に色を付け、改行が無ければ追加
+  raw = raw.replace(/([⑴-⒇][^（）\n]{0,28}（[^）]*[法令措則条通規][^）]*）)(\n?)/g,
+    (m, h, nl) => '‹‹SH››' + h + '‹‹/SH››' + (nl || '\n'));
   // 出題穴の直前の読点（、。改行）から穴までを文脈ハイライト（文脈理解のため）
   const hi = raw.indexOf('〔_〕');
   if (hi >= 0) {
@@ -638,6 +649,7 @@ function renderCard() {
   const curCls = wrongMap[c.id] ? 'hole-wrong' : 'hole';
   $('qText').innerHTML = esc(raw)
     .split('‹‹HD››').join('<span class="bodyhead">').split('‹‹/HD››').join('</span>')
+    .split('‹‹SH››').join('<span class="subhead">').split('‹‹/SH››').join('</span>')
     .split('‹‹CL››').join('<span class="clause">').split('‹‹/CL››').join('</span>')
     .replace(/〔_〕/g, `<span class="${curCls} blink">〔？〕</span>`)
     .replace(/〔●(\d+)〕/g, (m, n) => {
@@ -1726,7 +1738,7 @@ function startPillar(all) {
     const j = Math.floor(Math.random() * (i + 1));
     [pillarQueue[i], pillarQueue[j]] = [pillarQueue[j], pillarQueue[i]];
   }
-  pillarIdx = 0; pillarSession = { ok: 0, ng: 0 };
+  pillarIdx = 0; pillarSession = { ok: 0, ng: 0, wrong: [] };
   $('pillarStart').classList.add('hidden'); $('pillarStart').classList.remove('flex');
   $('pillarDone').classList.add('hidden'); $('pillarDone').classList.remove('flex');
   $('pillarCard').classList.remove('hidden'); $('pillarCard').classList.add('flex');
@@ -1814,8 +1826,8 @@ function pillarSM2(sec, ok) {
 function pillarGrade(ok) {
   const sec = pillarQueue[pillarIdx];
   pillarSM2(sec, ok);
-  ok ? pillarSession.ok++ : pillarSession.ng++;
-  if (ok) confetti();
+  if (ok) { pillarSession.ok++; confetti(); }
+  else { pillarSession.ng++; if (!pillarSession.wrong) pillarSession.wrong = []; pillarSession.wrong.push(sec); }
   pillarIdx++;
   pillarRender();
 }
@@ -1825,6 +1837,19 @@ function pillarDone() {
   const t = pillarSession.ok + pillarSession.ng;
   $('pillarDoneStats').textContent = `言えた ${pillarSession.ok} ／ 言えなかった ${pillarSession.ng}` +
     (t ? `（${Math.round(pillarSession.ok / t * 100)}%）` : '');
+  const wrong = (pillarSession.wrong || []);
+  $('pillarRetryWrong').classList.toggle('hidden', wrong.length === 0);
+}
+function pillarRetryWrong() {
+  const wrong = [...new Set(pillarSession.wrong || [])];
+  if (!wrong.length) return;
+  pillarQueue = wrong;
+  pillarIdx = 0; pillarSession = { ok: 0, ng: 0, wrong: [] };
+  $('pillarStart').classList.add('hidden'); $('pillarStart').classList.remove('flex');
+  $('pillarDone').classList.add('hidden'); $('pillarDone').classList.remove('flex');
+  $('pillarCard').classList.remove('hidden'); $('pillarCard').classList.add('flex');
+  toast('😤 間違えた題だけ復習', 'bg-amber-500');
+  pillarRender();
 }
 function pillarRepeat() {
   if (pillarQueue.length === 0) { renderPillarStart(); return; }
@@ -1833,7 +1858,7 @@ function pillarRepeat() {
     const j = Math.floor(Math.random() * (i + 1));
     [pillarQueue[i], pillarQueue[j]] = [pillarQueue[j], pillarQueue[i]];
   }
-  pillarIdx = 0; pillarSession = { ok: 0, ng: 0 };
+  pillarIdx = 0; pillarSession = { ok: 0, ng: 0, wrong: [] };
   $('pillarStart').classList.add('hidden'); $('pillarStart').classList.remove('flex');
   $('pillarDone').classList.add('hidden'); $('pillarDone').classList.remove('flex');
   $('pillarCard').classList.remove('hidden'); $('pillarCard').classList.add('flex');
