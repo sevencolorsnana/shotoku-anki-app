@@ -72,6 +72,7 @@
       <div class="animate-spin w-10 h-10 border-4 border-indigo-400 border-t-transparent rounded-full"></div>
       <div id="loadingMsg" class="text-sm">読み込み中...</div>
       <button id="loadBtn" onclick="loadCards(true)" class="hidden px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold pressable">データを読み込む</button>
+      <button id="weakStartBtn" onclick="loadWeakness()" class="hidden px-5 py-2.5 bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-xl text-sm font-bold pressable">🎯 弱点克服モード</button>
     </div>
 
     <div id="quizBox" class="hidden flex-1 flex-col">
@@ -81,7 +82,8 @@
           <span id="qRank" class="text-[11px] text-amber-500 font-bold"></span>
           <span id="qHole" class="text-[11px] text-slate-400"></span>
           <span id="wrongBadge" class="hidden text-[11px] font-bold bg-rose-500 text-white px-2 py-0.5 rounded-full pop">前回不正解</span>
-          <button onclick="flagSpot()" class="ml-auto text-[11px] px-2 py-1 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 pressable">🚩</button>
+          <button id="weakToggle" onclick="toggleWeak()" class="ml-auto text-[11px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 pressable">🎯</button>
+          <button onclick="flagSpot()" class="text-[11px] px-2 py-1 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 pressable">🚩</button>
           <button onclick="openEdit()" class="text-[11px] px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 pressable">✏️</button>
         </div>
         <div class="flex items-center gap-2 mb-1.5">
@@ -116,6 +118,7 @@
       <div class="flex flex-col gap-3 w-full max-w-[300px]">
         <button id="reviewWrongBtn" onclick="startWrongReview()" class="hidden px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl font-bold shadow-lg pressable">😤 不正解だけ即時復習</button>
         <button onclick="reviewAllToday()" class="px-6 py-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-2xl font-bold shadow-lg pressable">🔁 今日の分を再度復習</button>
+        <button onclick="loadWeakness()" class="px-6 py-3 bg-gradient-to-r from-rose-500 to-pink-600 text-white rounded-2xl font-bold shadow-lg pressable">🎯 弱点克服モード</button>
         <button onclick="loadCards(true)" class="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg pressable">🔄 再取得</button>
       </div>
     </div>
@@ -318,7 +321,7 @@
 
 <script>
 'use strict';
-const APP_VER = 'v40';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v41';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 // 各題の大見出し〔n〕の構成（穴の有無に関わらず存在する見出し番号）
 const SECTION_STRUCT = {"1-1":["1","2","3","4","5"],"1-2":["1","2","3","4"],"1-3":["1","2","3","4","5","6"],"2-1":["1","2","3","4","5","6","7","8"],"2-2":["1","2"],"2-3":["1","2","3","4","5","6"],"2-4":["1","2","3","4","5","6","7","8","9","10"],"2-5":["1","2","3","4","5","6","7"],"2-6":["1","2","3","4","5","6"],"2-7":["1","2","3"],"2-8":["1","2","3"],"2-9":["1","2","3","4","5"],"2-10":["1","2"],"2-11":["1","2"],"2-12":["1","2","3"],"2-13":["1","2","3","4","5"],"2-14":["1","2","3","4","5"],"2-15":["1","2","3","4"],"2-16":["1","2"],"2-17":["1","2"],"2-18":["1","2","3","4"],"2-19":["1","2","3","4"],"2-20":["1","2","3"],"2-21":["1","2","3","4"],"2-22":["1","2","3","4","5","6"],"2-23":["1","2","3"],"2-24":["1","2","3","4","5"],"2-25":["1","2","3","4"],"2-26":["1","2"],"2-27":["1","2","3","4"],"2-28":["1","2"],"3-1":["1","2","3","4","5","6","7","8","9"],"3-2":["1","2","3","4","5","6","7","8"],"3-3":["1","2","3","4","5","6","7","8","9"],"3-4":["1","2","3","4","5"],"3-5":["1","2","3","4","5"],"3-6":["1","2","3","4"],"3-7":["1","2","3","4"],"3-8":["1","2","3","4"],"4-1":["1","2","3","4","5","6","7","8","9"],"4-2":["1","2","3","4","5","6","7","8","9","10"],"4-3":["1","2","3"],"5-1":["1","2","3","4"],"5-2":["1","2","3"],"5-3":["1","2","3","4","5"],"5-4":["1","2","3","4","5","6","7","8"],"5-5":["1","2"],"5-6":["1","2"],"6-1":["1","2","3","4","5","6"],"6-2":["1","2","3","4","5","6"],"6-3":["1","2","3","4","5"],"6-4":["1","2"],"6-5":["1","2","3","4"],"6-6":["1","2","3","4"],"6-7":["1","2","3","4","5"],"6-8":["1","2","3","4"],"6-9":["1","2","3","4","5","6","7","8","9","10","11","12","13"],"7-1":["1","2","3","4"],"7-2":["1","2","3","4"],"7-3":["1","2","3","4","5","6","7","8","9"],"7-4":["1","2","3","4","5","6"],"7-5":["1","2","3","4","5","6","7","8"],"7-6":["1","2","3","4","5","6","7"],"8-1":["1","2","3"],"8-2":["1","2","3","4","5","6"],"9-1":["1","2","3","4","5","6"],"9-2":["1","2","3","4","5","6","7"],"9-3":["1","2","3","4","5","6","7"],"9-4":["1","2","3","4","5"],"10-1":["1","2","3","4"],"10-2":["1","2","3","4"]};
@@ -442,6 +445,87 @@ function statsFromLog(days) {
   return secs;
 }
 function setStatPeriod(p) { statPeriod = p; renderStats(); }
+
+// ── 弱点克服モード（見出し単位）──
+const WEAK_RATE = 0.7; // この正答率を下回る見出しは自動で弱点
+let weakMarks = JSON.parse(localStorage.getItem('weakMarks') || '[]'); // 手動マークした見出し ["題|n"]
+function headKey(c) { return c.section + '|' + headNum(c); }
+function isManualWeak(c) { return weakMarks.includes(headKey(c)); }
+function toggleWeak() {
+  const c = cards[queueIdx]; if (!c) return;
+  const k = headKey(c), i = weakMarks.indexOf(k);
+  if (i >= 0) { weakMarks.splice(i, 1); toast('弱点マークを解除', 'bg-slate-600'); }
+  else { weakMarks.push(k); toast('🎯 弱点に追加（見出し単位）', 'bg-rose-500'); }
+  localStorage.setItem('weakMarks', JSON.stringify(weakMarks));
+  updateWeakToggle();
+}
+function updateWeakToggle() {
+  const c = cards[queueIdx]; const b = $('weakToggle'); if (!b) return;
+  const on = c && isManualWeak(c);
+  b.className = 'ml-auto text-[11px] px-2 py-1 rounded-lg pressable ' +
+    (on ? 'bg-rose-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500');
+}
+// 弱点見出しの穴だけを出題（自動: 見出し正答率<70% ／ 手動マーク）
+async function loadWeakness() {
+  inWrongReview = false; scoped = false;
+  $('loadingBox').classList.remove('hidden');
+  $('quizBox').classList.add('hidden'); $('quizBox').classList.remove('flex');
+  $('doneBox').classList.add('hidden'); $('doneBox').classList.remove('flex');
+  $('loadBtn').classList.add('hidden'); $('weakStartBtn').classList.add('hidden');
+  const msg = $('loadingMsg');
+  if (!cfg.token) { msg.textContent = '⚙設定タブでNotionトークンを入力してください'; return; }
+  try {
+    const mapCard = r => ({
+      pageId: r.id, id: prop(r.properties, '穴ID', 'title'), section: prop(r.properties, '題番号', 'rich_text'),
+      title: prop(r.properties, '題名', 'rich_text'), heading: prop(r.properties, '大見出し', 'rich_text'),
+      question: prop(r.properties, '問題文', 'rich_text'), answer: prop(r.properties, '正解', 'rich_text'),
+      holeNum: prop(r.properties, '穴番号', 'number'), rank: prop(r.properties, '重要度', 'select'),
+      interval: prop(r.properties, '間隔_日数', 'number') || 1, ef: prop(r.properties, '難易度係数', 'number') || 2.5,
+      correct: prop(r.properties, '正答回数', 'number'), total: prop(r.properties, '出題回数', 'number'),
+    });
+    let res = [], cursor, page = 0;
+    do {
+      const body = { page_size: 100 };
+      if (cursor) body.start_cursor = cursor;
+      const j = await notion(`/v1/databases/${cfg.db}/query`, body);
+      res = res.concat(j.results); cursor = j.has_more ? j.next_cursor : undefined;
+      msg.textContent = `弱点を分析中... ${res.length}件`;
+    } while (cursor && ++page < 120);
+    let all = res.map(mapCard);
+    const sel = selectedSections();
+    if (sel) all = all.filter(c => sel.includes(c.section));
+    // 見出し単位で正答率を集計
+    const agg = {};
+    for (const c of all) {
+      const k = headKey(c); const o = agg[k] = agg[k] || { ok: 0, tot: 0 };
+      o.ok += c.correct; o.tot += c.total;
+    }
+    const weakHead = k => {
+      if (weakMarks.includes(k)) return true;
+      const o = agg[k]; return o && o.tot >= 2 && (o.ok / o.tot) < WEAK_RATE;
+    };
+    let weak = all.filter(c => weakHead(headKey(c)));
+    if (weak.length === 0) {
+      $('loadingBox').classList.add('hidden');
+      cards = []; baseCards = []; showDone();
+      $('doneStats').textContent = '🎯 弱点はありません（正答率70%以上）。お見事です！';
+      return;
+    }
+    // 題→見出し→本文位置 で整列
+    const bySec = {};
+    for (const c of weak) (bySec[c.section] = bySec[c.section] || []).push(c);
+    cards = [];
+    for (const s of Object.keys(bySec).sort(tidSort)) cards = cards.concat(orderSectionCards(bySec[s]));
+    baseCards = cards.slice(); clearSecTextCache();
+    queueIdx = 0; wrongCards = []; sessionResults = {}; streak = 0;
+    inWrongReview = false; showSecPanels = false; undoStack = []; updateUndoBtn();
+    saveState();
+    $('loadingBox').classList.add('hidden');
+    $('quizBox').classList.remove('hidden'); $('quizBox').classList.add('flex');
+    toast(`🎯 弱点 ${cards.length}問（${Object.keys(bySec).length}題）`, 'bg-rose-500');
+    renderCard();
+  } catch (e) { msg.textContent = '⚠ ' + e.message; }
+}
 let streak = 0;
 let inWrongReview = false;
 let lastAnsweredSection = null;
@@ -668,6 +752,7 @@ function renderCard() {
   $('qHole').textContent = `#穴${c.holeNum}・${c.total > 0 ? Math.round(c.correct / c.total * 100) + '%' : '初'}`;
   $('qHeading').textContent = c.heading;
   $('wrongBadge').classList.toggle('hidden', !wrongMap[c.id]);
+  updateWeakToggle();
   renderRepairBanner(c);
 
   // 見出し単位の本文をそのまま表示（題全体の連結はしない＝文章が崩れない）
@@ -1663,6 +1748,7 @@ function renderStats() {
 
   <div class="bg-white dark:bg-slate-900 rounded-2xl shadow p-4">
     <h2 class="font-bold mb-1">🎯 弱点（正答率が低い穴）</h2>
+    <button onclick="loadWeakness()" class="mb-2 px-3 py-1.5 text-xs bg-rose-500 text-white rounded-lg pressable">🎯 弱点克服モードで出題（見出し70%未満＋手動マーク）</button>
     <div class="text-[11px] text-slate-400 mb-2">本日の出題対象のうち、2回以上出題で正答率60%未満／前回不正解</div>
     ${weak.length === 0 ? '<div class="text-sm text-slate-400">弱点はありません 👏</div>' :
       weak.map(c => `
