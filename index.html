@@ -321,7 +321,7 @@
 
 <script>
 'use strict';
-const APP_VER = 'v42';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v43';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 // 各題の大見出し〔n〕の構成（穴の有無に関わらず存在する見出し番号）
 const SECTION_STRUCT = {"1-1":["1","2","3","4","5"],"1-2":["1","2","3","4"],"1-3":["1","2","3","4","5","6"],"2-1":["1","2","3","4","5","6","7","8"],"2-2":["1","2"],"2-3":["1","2","3","4","5","6"],"2-4":["1","2","3","4","5","6","7","8","9","10"],"2-5":["1","2","3","4","5","6","7"],"2-6":["1","2","3","4","5","6"],"2-7":["1","2","3"],"2-8":["1","2","3"],"2-9":["1","2","3","4","5"],"2-10":["1","2"],"2-11":["1","2"],"2-12":["1","2","3"],"2-13":["1","2","3","4","5"],"2-14":["1","2","3","4","5"],"2-15":["1","2","3","4"],"2-16":["1","2"],"2-17":["1","2"],"2-18":["1","2","3","4"],"2-19":["1","2","3","4"],"2-20":["1","2","3"],"2-21":["1","2","3","4"],"2-22":["1","2","3","4","5","6"],"2-23":["1","2","3"],"2-24":["1","2","3","4","5"],"2-25":["1","2","3","4"],"2-26":["1","2"],"2-27":["1","2","3","4"],"2-28":["1","2"],"3-1":["1","2","3","4","5","6","7","8","9"],"3-2":["1","2","3","4","5","6","7","8"],"3-3":["1","2","3","4","5","6","7","8","9"],"3-4":["1","2","3","4","5"],"3-5":["1","2","3","4","5"],"3-6":["1","2","3","4"],"3-7":["1","2","3","4"],"3-8":["1","2","3","4"],"4-1":["1","2","3","4","5","6","7","8","9"],"4-2":["1","2","3","4","5","6","7","8","9","10"],"4-3":["1","2","3"],"5-1":["1","2","3","4"],"5-2":["1","2","3"],"5-3":["1","2","3","4","5"],"5-4":["1","2","3","4","5","6","7","8"],"5-5":["1","2"],"5-6":["1","2"],"5-7":["1","2"],"6-1":["1","2","3","4","5","6"],"6-2":["1","2","3","4","5","6"],"6-3":["1","2","3","4","5"],"6-4":["1","2"],"6-5":["1","2","3","4"],"6-6":["1","2","3","4"],"6-7":["1","2","3","4","5"],"6-8":["1","2","3","4"],"6-9":["1","2","3","4","5","6","7","8","9","10","11","12","13"],"7-1":["1","2","3","4"],"7-2":["1","2","3","4"],"7-3":["1","2","3","4","5","6","7","8","9"],"7-4":["1","2","3","4","5","6"],"7-5":["1","2","3","4","5","6","7","8"],"7-6":["1","2","3","4","5","6","7"],"8-1":["1","2","3"],"8-2":["1","2","3","4","5","6"],"9-1":["1","2","3","4","5","6"],"9-2":["1","2","3","4","5","6","7"],"9-3":["1","2","3","4","5","6","7"],"9-4":["1","2","3","4","5"],"10-1":["1","2","3","4"],"10-2":["1","2","3","4"]};
@@ -445,6 +445,8 @@ function statsFromLog(days) {
   return secs;
 }
 function setStatPeriod(p) { statPeriod = p; renderStats(); }
+let statRangeOnly = false;
+function toggleStatRange() { statRangeOnly = !statRangeOnly; renderStats(); }
 
 // ── 弱点克服モード（見出し単位）──
 const WEAK_RATE = 0.7; // この正答率を下回る見出しは自動で弱点
@@ -567,7 +569,12 @@ function loadState() {
     return cards.length > 0;
   } catch (e) { return false; }
 }
-function clearCache() {
+async function clearCache() {
+  // 編集・追加のNotion同期が未完了なら待つ（待たずに再取得すると未反映分が元に戻るため）
+  if (_bgPending > 0) {
+    toast('🔄 編集の同期完了を待っています…', 'bg-amber-500');
+    try { await _bgSync; } catch (e) {}
+  }
   localStorage.removeItem('quizState');
   toast('キャッシュを削除しました', 'bg-rose-500');
   showTab('quiz');
@@ -1454,9 +1461,15 @@ let _holeSel = null; // {sec, heading, plainText, holeRanges:[{num,ps,pe,answer,
 function openHoleSel() {
   const c = cards[queueIdx];
   if (!c) return;
-  const sec = c.section, heading = c.heading;
+  if (buildHoleSel(c.section, c.heading)) {
+    $('editModal').classList.add('hidden');
+    $('holeSelModal').classList.remove('hidden');
+  }
+}
+// モーダルの本文表示を（再）構築。連続追加でも最新の状態を表示
+function buildHoleSel(sec, heading) {
   const hcards = baseCards.filter(x => x.section === sec && x.heading === heading);
-  if (!hcards.length) return;
+  if (!hcards.length) return false;
   const byNum = {}; hcards.forEach(x => byNum[x.holeNum] = x);
   const rep = hcards[0];
   const tmpl = rep.question.replace('〔_〕', `〔●${rep.holeNum}〕`);
@@ -1476,8 +1489,7 @@ function openHoleSel() {
   $('holeSelWhere').textContent = `${sec} ${heading}`;
   $('holeSelText').innerHTML = html;
   $('holeSelMsg').textContent = '本文をなぞって選択してください';
-  $('editModal').classList.add('hidden');
-  $('holeSelModal').classList.remove('hidden');
+  return true;
 }
 function closeHoleSel() { $('holeSelModal').classList.add('hidden'); _holeSel = null; }
 // 選択が変わるたびに範囲を記憶（iOSはボタン押下で選択が消えるため）
@@ -1576,9 +1588,10 @@ async function applyHoleSelection() {
     if (curId) { const ni = cards.findIndex(c => c.id === curId); if (ni >= 0) queueIdx = ni; }
     clearSecTextCache();
     saveState();
-    closeHoleSel();
-    toast(absorbed.length ? `✓ ${absorbed.length}個の穴を統合（同期中…）` : '✓ 穴を追加（同期中…）', 'bg-emerald-600');
     renderCard();
+    // モーダルは閉じず、最新状態で再描画して連続追加できるようにする
+    buildHoleSel(sec, heading);
+    toast(absorbed.length ? `✓ ${absorbed.length}個の穴を統合（続けて選択可）` : '✓ 穴を追加（続けて選択可）', 'bg-emerald-600');
     // 背景でNotionの残り更新を「順番待ち」で実行（連続追加でも後の更新が必ず最後に確定）
     queueBgSync(async () => {
       for (const h of keep) {
@@ -1712,7 +1725,9 @@ function renderStats() {
     : statPeriod === '7d' ? statsFromLog(7)
       : ((fullStats && fullStats.secs) ? fullStats.secs : history);
   const usingFull = statPeriod === 'all' && !!(fullStats && fullStats.secs);
-  const secs = Object.keys(STAT).sort(tidSort);
+  const rangeSel = selectedSections();
+  let secs = Object.keys(STAT).sort(tidSort);
+  if (statRangeOnly && rangeSel) secs = secs.filter(s => rangeSel.includes(s));
   let totalAns = 0, totalOk = 0;
   for (const s of secs) { totalAns += STAT[s].ok + STAT[s].ng; totalOk += STAT[s].ok; }
 
@@ -1763,8 +1778,10 @@ function renderStats() {
 
   <div class="bg-white dark:bg-slate-900 rounded-2xl shadow p-4">
     <h2 class="font-bold mb-1">📚 題ごとの正答率（タップで見出し別に展開）</h2>
-    <div class="flex gap-1.5 mb-1.5">${periodBtns}</div>
-    <div class="text-[11px] text-slate-400 mb-1">${aggInfo}</div>
+    <div class="flex gap-1.5 mb-1.5 flex-wrap">${periodBtns}
+      ${rangeSel ? `<button onclick="toggleStatRange()" class="px-3 py-1 text-xs rounded-lg pressable ${statRangeOnly ? 'bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-slate-700'}">📑 範囲のみ</button>` : ''}
+    </div>
+    <div class="text-[11px] text-slate-400 mb-1">${aggInfo}${statRangeOnly && rangeSel ? '・選択範囲のみ' : ''}</div>
     ${statPeriod === 'all' ? '<button onclick="aggregateAllFromNotion()" class="mb-2 px-3 py-1.5 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-lg pressable">📊 Notionから全題を集計（更新）</button>' : ''}
     ${secs.length === 0 ? '<div class="text-sm text-slate-400">まだ回答データがありません</div>' :
       secs.map(s => {
