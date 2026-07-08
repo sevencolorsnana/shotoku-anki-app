@@ -326,7 +326,7 @@
 
 <script>
 'use strict';
-const APP_VER = 'v46';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v47';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 // 各題の大見出し〔n〕の構成（穴の有無に関わらず存在する見出し番号）
 const SECTION_STRUCT = {"1-1":["1","2","3","4","5"],"1-2":["1","2","3","4"],"1-3":["1","2","3","4","5","6"],"2-1":["1","2","3","4","5","6","7","8"],"2-2":["1","2"],"2-3":["1","2","3","4","5","6"],"2-4":["1","2","3","4","5","6","7","8","9","10"],"2-5":["1","2","3","4","5","6","7"],"2-6":["1","2","3","4","5","6"],"2-7":["1","2","3"],"2-8":["1","2","3"],"2-9":["1","2","3","4","5"],"2-10":["1","2"],"2-11":["1","2"],"2-12":["1","2","3"],"2-13":["1","2","3","4","5"],"2-14":["1","2","3","4","5"],"2-15":["1","2","3","4"],"2-16":["1","2"],"2-17":["1","2"],"2-18":["1","2","3","4"],"2-19":["1","2","3","4"],"2-20":["1","2","3"],"2-21":["1","2","3","4"],"2-22":["1","2","3","4","5","6"],"2-23":["1","2","3"],"2-24":["1","2","3","4","5"],"2-25":["1","2","3","4"],"2-26":["1","2"],"2-27":["1","2","3","4"],"2-28":["1","2"],"3-1":["1","2","3","4","5","6","7","8","9"],"3-2":["1","2","3","4","5","6","7","8"],"3-3":["1","2","3","4","5","6","7","8","9"],"3-4":["1","2","3","4","5"],"3-5":["1","2","3","4","5"],"3-6":["1","2","3","4"],"3-7":["1","2","3","4"],"3-8":["1","2","3","4"],"4-1":["1","2","3","4","5","6","7","8","9"],"4-2":["1","2","3","4","5","6","7","8","9","10"],"4-3":["1","2","3"],"5-1":["1","2","3","4"],"5-2":["1","2","3"],"5-3":["1","2","3","4","5"],"5-4":["1","2","3","4","5","6","7","8"],"5-5":["1","2"],"5-6":["1","2"],"5-7":["1","2"],"6-1":["1","2","3","4","5","6"],"6-2":["1","2","3","4","5","6"],"6-3":["1","2","3","4","5"],"6-4":["1","2"],"6-5":["1","2","3","4"],"6-6":["1","2","3","4"],"6-7":["1","2","3","4","5"],"6-8":["1","2","3","4"],"6-9":["1","2","3","4","5","6","7","8","9","10","11","12","13"],"7-1":["1","2","3","4"],"7-2":["1","2","3","4"],"7-3":["1","2","3","4","5","6","7","8","9"],"7-4":["1","2","3","4","5","6"],"7-5":["1","2","3","4","5","6","7","8"],"7-6":["1","2","3","4","5","6","7"],"8-1":["1","2","3"],"8-2":["1","2","3","4","5","6"],"9-1":["1","2","3","4","5","6"],"9-2":["1","2","3","4","5","6","7"],"9-3":["1","2","3","4","5","6","7"],"9-4":["1","2","3","4","5"],"10-1":["1","2","3","4"],"10-2":["1","2","3","4"]};
@@ -420,21 +420,22 @@ function prop(p, name, type) {
 // ── 状態 ──
 let cards = [];
 let baseCards = [];     // 当日読み込んだ全カード（復習の母集団）
-// 題ごとのNotion重要度（★）。読み込んだカードから蓄積し端末に保存
-let SECTION_RANK = JSON.parse(localStorage.getItem('sectionRank') || '{}');
-function starN(r) { return r ? (r.match(/★/g) || []).length : 0; }
-function mergeRank(arr) {
-  let ch = false;
-  (arr || []).forEach(c => {
-    if (c && c.rank && starN(c.rank) > starN(SECTION_RANK[c.section] || '')) {
-      SECTION_RANK[c.section] = c.rank; ch = true;
-    }
-  });
-  if (ch) localStorage.setItem('sectionRank', JSON.stringify(SECTION_RANK));
-}
+// 題ごとのランク（理論マスタDB由来。特A > A+ > A > B > C > 準C）
+const SECTION_RANK = { "1-1": "C", "1-3": "A", "2-2": "特A", "2-3": "特A", "2-4": "特A", "2-5": "B", "2-6": "A", "2-7": "準C", "2-8": "特A", "2-9": "特A", "2-10": "A+", "2-11": "A", "2-13": "特A", "2-14": "特A", "2-15": "B", "2-16": "C", "2-18": "A", "2-19": "特A", "2-20": "C", "2-21": "特A", "2-22": "A+", "2-23": "A", "2-24": "準C", "2-25": "A", "2-27": "B", "2-28": "準C", "3-2": "C", "3-3": "特A", "3-4": "A+", "3-5": "A+", "3-6": "A", "3-7": "A", "3-8": "特A", "4-1": "特A", "4-2": "A", "5-1": "B", "5-2": "C", "5-3": "B", "5-4": "B", "5-6": "特A", "5-7": "特A", "6-1": "A", "6-2": "特A", "6-3": "特A", "6-4": "B", "6-6": "C", "6-7": "A+", "6-8": "B", "6-9": "特A", "7-2": "特A", "7-3": "特A", "7-4": "特A", "7-5": "B", "8-1": "C", "8-2": "特A", "9-1": "準C", "9-2": "C" };
+const RANK_STYLE = {
+  '特A': 'bg-rose-600 text-white',
+  'A+': 'bg-orange-500 text-white',
+  'A': 'bg-amber-500 text-white',
+  'B': 'bg-sky-600 text-white',
+  'C': 'bg-slate-400 text-white',
+  '準C': 'bg-slate-300 text-slate-700',
+};
+function mergeRank() {}  // 後方互換（ランクは静的マップに変更）
 function rankBadge(sec, cls) {
   const r = SECTION_RANK[sec];
-  return r ? `<span class="text-amber-500 ${cls || 'text-[11px]'} ml-1">${r}</span>` : '';
+  if (!r) return '';
+  const st = RANK_STYLE[r] || 'bg-slate-400 text-white';
+  return `<span class="inline-block px-1.5 rounded ${st} ${cls || 'text-[10px]'} font-bold ml-1 align-middle">${r}</span>`;
 }
 let queueIdx = 0;
 let sessionResults = {};
@@ -778,7 +779,7 @@ function renderCard() {
   const c = cards[queueIdx];
   if (!c) { showDone(); return; }
   $('qSection').textContent = '問題' + c.section;
-  $('qRank').textContent = c.rank || '';
+  $('qRank').innerHTML = rankBadge(c.section, 'text-[11px]');
   $('qTitle').textContent = c.title;
   $('qHole').textContent = `#穴${c.holeNum}・${c.total > 0 ? Math.round(c.correct / c.total * 100) + '%' : '初'}`;
   $('qHeading').textContent = c.heading;
@@ -1193,8 +1194,6 @@ async function aggregateAllFromNotion() {
       const heading = prop(p.properties, '大見出し', 'rich_text');
       const title = prop(p.properties, '題名', 'rich_text');
       const n = (heading.match(/〔(\d+)〕/) || [])[1] || '-';
-      const rk = prop(p.properties, '重要度', 'select');
-      if (rk && starN(rk) > starN(SECTION_RANK[s] || '')) { SECTION_RANK[s] = rk; }
       const o = secs[s] = secs[s] || { ok: 0, ng: 0, title, heads: {} };
       o.ok += correct; o.ng += (total - correct); o.title = title;
       const hh = o.heads[n] = o.heads[n] || { ok: 0, ng: 0 };
@@ -1202,7 +1201,6 @@ async function aggregateAllFromNotion() {
     }
     fullStats = { ts: Date.now(), secs };
     localStorage.setItem('fullStats', JSON.stringify(fullStats));
-    localStorage.setItem('sectionRank', JSON.stringify(SECTION_RANK));
     toast('✓ 集計完了', 'bg-emerald-600');
     renderStats();
   } catch (e) { toast('集計失敗: ' + e.message, 'bg-rose-500'); }
