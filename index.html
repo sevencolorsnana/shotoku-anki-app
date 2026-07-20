@@ -195,6 +195,7 @@
         <button onclick="rangeAll(false)" class="px-3 py-1.5 text-xs bg-slate-200 dark:bg-slate-700 rounded-lg pressable">全解除</button>
         <button onclick="savePreset()" class="px-3 py-1.5 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-lg pressable">＋プリセット保存</button>
       </div>
+      <div id="rankFilter" class="flex gap-1.5 mb-3 flex-wrap items-center"></div>
       <div id="presetList" class="flex gap-2 mb-3 flex-wrap"></div>
       <div id="rangeList" class="text-sm max-h-[55vh] overflow-y-auto"></div>
       <button onclick="applyRange()" class="mt-4 w-full py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-bold shadow pressable">この範囲で出題</button>
@@ -337,7 +338,7 @@
 
 <script>
 'use strict';
-const APP_VER = 'v48';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v49';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 // 各題の大見出し〔n〕の構成（穴の有無に関わらず存在する見出し番号）
 const SECTION_STRUCT = {"1-1":["1","2","3","4","5"],"1-2":["1","2","3","4"],"1-3":["1","2","3","4","5","6"],"2-1":["1","2","3","4","5","6","7","8"],"2-2":["1","2"],"2-3":["1","2","3","4","5","6"],"2-4":["1","2","3","4","5","6","7","8","9","10"],"2-5":["1","2","3","4","5","6","7"],"2-6":["1","2","3","4","5","6"],"2-7":["1","2","3"],"2-8":["1","2","3"],"2-9":["1","2","3","4","5"],"2-10":["1","2"],"2-11":["1","2"],"2-12":["1","2","3"],"2-13":["1","2","3","4","5"],"2-14":["1","2","3","4","5"],"2-15":["1","2","3","4"],"2-16":["1","2"],"2-17":["1","2"],"2-18":["1","2","3","4"],"2-19":["1","2","3","4"],"2-20":["1","2","3"],"2-21":["1","2","3","4"],"2-22":["1","2","3","4","5","6"],"2-23":["1","2","3"],"2-24":["1","2","3","4","5"],"2-25":["1","2","3","4"],"2-26":["1","2"],"2-27":["1","2","3","4"],"2-28":["1","2"],"3-1":["1","2","3","4","5","6","7","8","9"],"3-2":["1","2","3","4","5","6","7","8"],"3-3":["1","2","3","4","5","6","7","8","9"],"3-4":["1","2","3","4","5"],"3-5":["1","2","3","4","5"],"3-6":["1","2","3","4"],"3-7":["1","2","3","4"],"3-8":["1","2","3","4"],"4-1":["1","2","3","4","5","6","7","8","9"],"4-2":["1","2","3","4","5","6","7","8","9","10"],"4-3":["1","2","3"],"5-1":["1","2","3","4"],"5-2":["1","2","3"],"5-3":["1","2","3","4","5"],"5-4":["1","2","3","4","5","6","7","8"],"5-5":["1","2"],"5-6":["1","2"],"5-7":["1","2"],"6-1":["1","2","3","4","5","6"],"6-2":["1","2","3","4","5","6"],"6-3":["1","2","3","4","5"],"6-4":["1","2"],"6-5":["1","2","3","4"],"6-6":["1","2","3","4"],"6-7":["1","2","3","4","5"],"6-8":["1","2","3","4"],"6-9":["1","2","3","4","5","6","7","8","9","10","11","12","13"],"7-1":["1","2","3","4"],"7-2":["1","2","3","4"],"7-3":["1","2","3","4","5","6","7","8","9"],"7-4":["1","2","3","4","5","6"],"7-5":["1","2","3","4","5","6","7","8"],"7-6":["1","2","3","4","5","6","7"],"8-1":["1","2","3"],"8-2":["1","2","3","4","5","6"],"9-1":["1","2","3","4","5","6"],"9-2":["1","2","3","4","5","6","7"],"9-3":["1","2","3","4","5","6","7"],"9-4":["1","2","3","4","5"],"10-1":["1","2","3","4"],"10-2":["1","2","3","4"]};
@@ -2177,9 +2178,38 @@ function renderRange() {
       <span class="leading-snug"><b class="text-indigo-600 dark:text-indigo-400">${s}</b>${rankBadge(s)}
         <span class="text-[12px] text-slate-600 dark:text-slate-300">${esc(SECTION_TITLES[s] || '')}</span></span>
     </label>`).join('');
+  renderRankFilter();
   renderPresets();
 }
-function rangeAll(on) { document.querySelectorAll('.rangecb').forEach(cb => cb.checked = on); }
+function rangeAll(on) {
+  document.querySelectorAll('.rangecb').forEach(cb => cb.checked = on);
+  rankFilterOn = {};
+  if (on) RANK_ORDER.forEach(r => rankFilterOn[r] = true);
+  renderRankFilter();
+}
+// ── ランクフィルタ（タップでそのランクの題を一括選択/解除）──
+const RANK_ORDER = ['特A', 'A+', 'A', 'B', 'C', '準C', '－'];
+let rankFilterOn = {};
+function secRank(s) { return SECTION_RANK[s] || '－'; }
+function toggleRankFilter(r) {
+  rankFilterOn[r] = !rankFilterOn[r];
+  document.querySelectorAll('.rangecb').forEach(cb => {
+    if (secRank(cb.value) === r) cb.checked = !!rankFilterOn[r];
+  });
+  renderRankFilter();
+}
+function renderRankFilter() {
+  const el = $('rankFilter');
+  if (!el) return;
+  el.innerHTML = '<span class="text-[11px] text-slate-400">ランクで選択:</span>' + RANK_ORDER.map(r => {
+    const cnt = ALL_SECTIONS.filter(s => secRank(s) === r).length;
+    if (!cnt) return '';
+    const on = !!rankFilterOn[r];
+    const st = on ? (RANK_STYLE[r] || 'bg-slate-500 text-white') + ' ring-2 ring-indigo-400'
+      : 'bg-slate-100 dark:bg-slate-800 text-slate-500';
+    return `<button onclick="toggleRankFilter('${r}')" class="px-2.5 py-1 text-xs rounded-lg font-bold pressable ${st}">${r}<span class="opacity-70 ml-0.5">${cnt}</span></button>`;
+  }).join('');
+}
 function applyRange() {
   const sel = [...document.querySelectorAll('.rangecb:checked')].map(cb => cb.value);
   localStorage.setItem('rangeSel', JSON.stringify(sel.length === ALL_SECTIONS.length ? null : sel));
