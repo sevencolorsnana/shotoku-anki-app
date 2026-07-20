@@ -92,6 +92,7 @@
         </div>
         <div id="qTitle" class="text-sm font-bold mb-0.5"></div>
         <div id="qHeading" class="text-[11px] text-slate-400 mb-2"></div>
+        <div id="relLinks" class="hidden mb-2 flex items-center gap-1.5 flex-wrap"></div>
         <div id="repairBanner" class="hidden mb-2 p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-[11px] text-amber-700 dark:text-amber-300 flex items-center gap-2"></div>
         <div id="qScroll" class="overflow-y-auto max-h-[calc(100dvh-330px)]">
           <div id="qText" class="text-[15px] leading-[1.9] whitespace-pre-wrap"></div>
@@ -321,12 +322,22 @@
     </div>
   </div>
 
+  <!-- 同一見出し（関連題）表示モーダル -->
+  <div id="relModal" class="hidden fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center" onclick="if(event.target===this)closeRel()">
+    <div class="bg-white dark:bg-slate-900 w-full max-w-[520px] rounded-t-3xl sm:rounded-2xl p-4 max-h-[88dvh] overflow-y-auto">
+      <h3 class="font-bold mb-1">🔗 同じ見出しの題 <span id="relWhere" class="text-[11px] text-slate-400"></span></h3>
+      <div class="text-[11px] text-slate-400 mb-2">穴は<b class="text-emerald-600">正解を埋めた状態</b>で表示します。関連づけて暗記しましょう。</div>
+      <div id="relText" class="p-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[14px] leading-[1.9] whitespace-pre-wrap max-h-[62dvh] overflow-y-auto"></div>
+      <button onclick="closeRel()" class="mt-3 w-full py-3 bg-slate-200 dark:bg-slate-700 rounded-xl font-bold pressable">閉じる</button>
+    </div>
+  </div>
+
   <div id="toast" class="hidden fixed top-[70px] left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full text-sm font-bold text-white shadow-lg pop"></div>
 </div>
 
 <script>
 'use strict';
-const APP_VER = 'v47';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v48';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 // 各題の大見出し〔n〕の構成（穴の有無に関わらず存在する見出し番号）
 const SECTION_STRUCT = {"1-1":["1","2","3","4","5"],"1-2":["1","2","3","4"],"1-3":["1","2","3","4","5","6"],"2-1":["1","2","3","4","5","6","7","8"],"2-2":["1","2"],"2-3":["1","2","3","4","5","6"],"2-4":["1","2","3","4","5","6","7","8","9","10"],"2-5":["1","2","3","4","5","6","7"],"2-6":["1","2","3","4","5","6"],"2-7":["1","2","3"],"2-8":["1","2","3"],"2-9":["1","2","3","4","5"],"2-10":["1","2"],"2-11":["1","2"],"2-12":["1","2","3"],"2-13":["1","2","3","4","5"],"2-14":["1","2","3","4","5"],"2-15":["1","2","3","4"],"2-16":["1","2"],"2-17":["1","2"],"2-18":["1","2","3","4"],"2-19":["1","2","3","4"],"2-20":["1","2","3"],"2-21":["1","2","3","4"],"2-22":["1","2","3","4","5","6"],"2-23":["1","2","3"],"2-24":["1","2","3","4","5"],"2-25":["1","2","3","4"],"2-26":["1","2"],"2-27":["1","2","3","4"],"2-28":["1","2"],"3-1":["1","2","3","4","5","6","7","8","9"],"3-2":["1","2","3","4","5","6","7","8"],"3-3":["1","2","3","4","5","6","7","8","9"],"3-4":["1","2","3","4","5"],"3-5":["1","2","3","4","5"],"3-6":["1","2","3","4"],"3-7":["1","2","3","4"],"3-8":["1","2","3","4"],"4-1":["1","2","3","4","5","6","7","8","9"],"4-2":["1","2","3","4","5","6","7","8","9","10"],"4-3":["1","2","3"],"5-1":["1","2","3","4"],"5-2":["1","2","3"],"5-3":["1","2","3","4","5"],"5-4":["1","2","3","4","5","6","7","8"],"5-5":["1","2"],"5-6":["1","2"],"5-7":["1","2"],"6-1":["1","2","3","4","5","6"],"6-2":["1","2","3","4","5","6"],"6-3":["1","2","3","4","5"],"6-4":["1","2"],"6-5":["1","2","3","4"],"6-6":["1","2","3","4"],"6-7":["1","2","3","4","5"],"6-8":["1","2","3","4"],"6-9":["1","2","3","4","5","6","7","8","9","10","11","12","13"],"7-1":["1","2","3","4"],"7-2":["1","2","3","4"],"7-3":["1","2","3","4","5","6","7","8","9"],"7-4":["1","2","3","4","5","6"],"7-5":["1","2","3","4","5","6","7","8"],"7-6":["1","2","3","4","5","6","7"],"8-1":["1","2","3"],"8-2":["1","2","3","4","5","6"],"9-1":["1","2","3","4","5","6"],"9-2":["1","2","3","4","5","6","7"],"9-3":["1","2","3","4","5","6","7"],"9-4":["1","2","3","4","5"],"10-1":["1","2","3","4"],"10-2":["1","2","3","4"]};
@@ -430,6 +441,62 @@ const RANK_STYLE = {
   'C': 'bg-slate-400 text-white',
   '準C': 'bg-slate-300 text-slate-700',
 };
+// 複数の題に全く同じ見出しがあるもの（内容が重複しがち→関連リンクで相互参照）
+const HEAD_LINKS = {"納税義務者":["1-1:1","1-2:1"],"課税所得の範囲":["1-1:2","1-2:2"],"課税方法":["1-1:4","1-2:3"],"復興特別所得税":["1-1:5","1-2:4"],"納税地":["1-3:1","7-2:3","7-3:7","7-5:6","7-6:4"],"源泉徴収に係る所得税の納税地":["1-3:3","7-1:2"],"総合課税":["2-3:1","2-5:4","2-15:1","2-20:1"],"非課税":["2-3:2","2-5:3"],"源泉徴収":["2-3:5","2-5:6","2-6:5","7-1:1"],"確定所得申告を要しない場合":["2-3:6","2-5:7","2-6:6","6-3:2"],"給与所得":["2-4:5","2-5:2"],"退職所得":["2-4:6","2-6:2"],"申告分離課税":["2-6:4","2-20:2"],"申告要件":["2-12:2","2-13:4","2-24:3","2-26:2","3-4:2","3-5:2","5-1:2","5-4:2"],"居住用財産の譲渡":["2-13:5","3-6:4","3-7:4"],"適用除外":["2-18:3","5-4:7"],"青色事業専従者給与の必要経費算入":["2-25:2","6-9:6"],"山林所得金額":["3-1:2","3-2:1"],"退職所得金額":["3-1:3","3-2:2"],"上場株式等に係る配当所得等の金額":["3-1:4","3-2:3"],"短期譲渡所得の金額":["3-1:5","3-2:4"],"長期譲渡所得の金額":["3-1:6","3-2:5"],"一般株式等に係る譲渡所得等の金額":["3-1:7","3-2:6"],"上場株式等に係る譲渡所得等の金額":["3-1:8","3-2:7"],"先物取引に係る雑所得等の金額":["3-1:9","3-2:8"],"純損失の繰越控除":["3-4:1","6-9:9"],"純損失の金額":["3-4:3","6-7:5"],"年末調整における控除":["3-8:2","5-4:5"],"扶養親族等の判定の時期":["3-8:3","4-2:10"],"控除限度額":["5-2:3","5-4:8"],"一般の場合":["6-1:1","6-5:1","6-7:1"],"予定納税基準額":["6-1:6","6-2:6"],"処分":["6-2:3","9-2:6"],"死亡の場合":["6-4:1","6-5:2","6-7:3"],"出国の場合":["6-4:2","6-5:3"],"添付書類":["6-8:3","8-1:2"],"復興特別所得税の源泉徴収":["7-1:3","7-2:4","7-3:8","7-5:7","7-6:5"],"源泉徴収義務":["7-3:1","7-5:1","7-6:1"],"源泉徴収を要しない場合":["7-3:2","7-5:2","7-6:3"],"源泉徴収税額":["7-3:3","7-5:3"],"納期の特例":["7-3:6","7-5:5"],"災免法による徴収猶予":["7-3:9","7-6:7"],"給与所得の源泉徴収票":["7-4:6","8-2:1"],"退職所得の源泉徴収票":["7-5:8","8-2:2"],"公的年金等の源泉徴収票":["7-6:6","8-2:3"],"国税通則法の原則":["9-1:1","9-2:1"],"措置法の特則":["9-1:2","9-2:4","9-3:6"],"納付":["9-1:4","9-3:7"],"所得税法の特則":["9-2:3","9-3:5"],"譲渡がなかったものとされる場合":["10-1:2","10-2:2"],"納税猶予":["10-1:3","10-2:3"],"取得価額":["10-1:4","10-2:4"]};
+// 見出し名の正規化（〔n〕・（条文）・★・空白を除去）
+function headNameKey(h) {
+  return (h || '').replace(/^〔\s*\d+\s*〕\s*/, '').replace(/（[^）]*）/g, '').replace(/[★\s]/g, '');
+}
+function renderRelLinks(c) {
+  const box = $('relLinks');
+  const key = headNameKey(c.heading);
+  const links = (HEAD_LINKS[key] || []).filter(x => x.split(':')[0] !== c.section);
+  if (!links.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+  box.innerHTML = '<span class="text-[11px] text-slate-400">🔗 同じ見出し:</span>' + links.map(x => {
+    const [s, n] = x.split(':');
+    return `<button onclick="showRelated('${s}',${n},'${esc(key)}')" class="text-[11px] px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300 font-bold pressable">${s}〔${n}〕</button>`;
+  }).join('');
+  box.classList.remove('hidden');
+}
+// 関連題の見出し本文を正解入りで表示
+const _relCache = {};
+async function showRelated(sec, n, key) {
+  $('relWhere').textContent = `${sec}〔${n}〕${key}`;
+  $('relText').innerHTML = '<span class="text-slate-400">読み込み中...</span>';
+  $('relModal').classList.remove('hidden');
+  const ck = sec + ':' + n;
+  try {
+    if (!_relCache[ck]) {
+      let res = [], cursor;
+      do {
+        const body = { page_size: 100, filter: { property: '題番号', rich_text: { equals: sec } } };
+        if (cursor) body.start_cursor = cursor;
+        const j = await notion(`/v1/databases/${cfg.db}/query`, body);
+        res = res.concat(j.results); cursor = j.has_more ? j.next_cursor : undefined;
+      } while (cursor);
+      const hs = res.filter(r => (prop(r.properties, '大見出し', 'rich_text') || '').replace(/\s/g, '').startsWith(`〔${n}〕`));
+      if (!hs.length) throw new Error('見出しが見つかりません');
+      const ans = {};
+      hs.forEach(r => { ans[prop(r.properties, '穴番号', 'number')] = prop(r.properties, '正解', 'rich_text'); });
+      // 全マーカー版テンプレ（最長のものを採用）
+      let tmpl = '';
+      for (const r of hs) {
+        const num = prop(r.properties, '穴番号', 'number');
+        const t = (prop(r.properties, '問題文', 'rich_text') || '').replace('〔_〕', `〔●${num}〕`);
+        if (t.length > tmpl.length) tmpl = t;
+      }
+      _relCache[ck] = { tmpl, ans };
+    }
+    const { tmpl, ans } = _relCache[ck];
+    const html = esc(tmpl.replace(/〔●(\d+)〕/g, (m, k) => `‹A›${ans[k] != null ? ans[k] : '？'}‹/A›`))
+      .split('‹A›').join('<b class="text-emerald-600 dark:text-emerald-400 border-b border-emerald-400">')
+      .split('‹/A›').join('</b>');
+    $('relText').innerHTML = html;
+  } catch (e) {
+    $('relText').innerHTML = `<span class="text-rose-500">読み込み失敗: ${esc(e.message)}</span>`;
+  }
+}
+function closeRel() { $('relModal').classList.add('hidden'); }
 function mergeRank() {}  // 後方互換（ランクは静的マップに変更）
 function rankBadge(sec, cls) {
   const r = SECTION_RANK[sec];
@@ -465,6 +532,24 @@ function statsFromLog(days) {
     const hh = o.heads[e.h] = o.heads[e.h] || { ok: 0, ng: 0 }; e.ok ? hh.ok++ : hh.ng++;
   }
   return secs;
+}
+// 過去7日で正答率90%未満の題（＝明確な弱点）を抽出
+function weekWeakSections() {
+  const secs = statsFromLog(7);
+  return Object.keys(secs)
+    .map(s => { const o = secs[s], t = o.ok + o.ng; return { s, t, rate: t ? o.ok / t : 0 }; })
+    .filter(x => x.t > 0 && x.rate < 0.9)
+    .sort((a, b) => a.rate - b.rate);
+}
+// その題だけを範囲にして集中出題
+function loadWeekWeak() {
+  const weak = weekWeakSections();
+  if (!weak.length) { toast('過去7日で90%未満の題はありません 👏', 'bg-emerald-600'); return; }
+  localStorage.setItem('rangeSel', JSON.stringify(weak.map(x => x.s)));
+  localStorage.removeItem('quizState');
+  toast(`⚡ 弱点${weak.length}題を集中出題`, 'bg-rose-500');
+  showTab('quiz');
+  loadCards(true);
 }
 function setStatPeriod(p) { statPeriod = p; renderStats(); }
 let statRangeOnly = false;
@@ -786,6 +871,7 @@ function renderCard() {
   $('wrongBadge').classList.toggle('hidden', !wrongMap[c.id]);
   updateWeakToggle();
   renderRepairBanner(c);
+  renderRelLinks(c);
 
   // 見出し単位の本文をそのまま表示（題全体の連結はしない＝文章が崩れない）
   let raw = c.question;
@@ -1791,6 +1877,18 @@ function renderStats() {
       <div class="text-2xl font-extrabold">${Object.keys(wrongMap).length}</div><div class="text-[11px] opacity-90">要復習の穴</div>
     </div>
   </div>
+
+  ${(() => {
+    const weak = weekWeakSections();
+    if (!weak.length) return '';
+    return `<div class="bg-white dark:bg-slate-900 rounded-2xl shadow p-4 ring-2 ring-rose-300 dark:ring-rose-800">
+      <h2 class="font-bold mb-1">⚡ 週間弱点（過去7日で正答率90%未満の題）</h2>
+      <div class="flex flex-wrap gap-1.5 mb-2">${weak.map(x =>
+      `<span class="text-[11px] px-2 py-0.5 rounded-full ${x.rate < 0.7 ? 'bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-300' : 'bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-300'} font-bold">${x.s}${rankBadge(x.s)} ${Math.round(x.rate * 100)}%(${x.t})</span>`).join('')}
+      </div>
+      <button onclick="loadWeekWeak()" class="w-full py-3 bg-gradient-to-r from-rose-500 to-orange-500 text-white rounded-xl font-bold shadow pressable">⚡ この${weak.length}題を集中出題（範囲に設定）</button>
+    </div>`;
+  })()}
 
   <div class="bg-white dark:bg-slate-900 rounded-2xl shadow p-4">
     <h2 class="font-bold mb-1">🎯 弱点（正答率が低い穴）</h2>
