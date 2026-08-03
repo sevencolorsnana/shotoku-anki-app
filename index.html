@@ -165,9 +165,10 @@
           <button id="pillarReveal" onclick="pillarNextHeading()" class="col-span-2 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl font-bold text-base shadow-lg pressable">次の柱 ▶</button>
         </div>
         <div id="pillarJudge" class="hidden grid grid-cols-2 gap-3">
-          <button onclick="pillarGrade(false)" class="py-3.5 bg-gradient-to-r from-rose-500 to-red-500 text-white rounded-2xl font-bold text-base shadow-lg pressable">✗ 言えなかった</button>
-          <button onclick="pillarGrade(true)" class="py-3.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-2xl font-bold text-base shadow-lg pressable">✓ 言えた</button>
+          <button onclick="pillarJudgeBtn(false)" class="py-3.5 bg-gradient-to-r from-rose-500 to-red-500 text-white rounded-2xl font-bold text-base shadow-lg pressable">✗ 言えなかった</button>
+          <button onclick="pillarJudgeBtn(true)" class="py-3.5 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-2xl font-bold text-base shadow-lg pressable">✓ 言えた</button>
         </div>
+        <div id="pillarJudgeHint" class="hidden text-center text-[11px] text-slate-400"></div>
       </div>
     </div>
     <!-- 完了画面 -->
@@ -338,7 +339,7 @@
 
 <script>
 'use strict';
-const APP_VER = 'v50';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v51';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 // 各題の大見出し〔n〕の構成（穴の有無に関わらず存在する見出し番号）
 const SECTION_STRUCT = {"1-1":["1","2","3","4","5"],"1-2":["1","2","3","4"],"1-3":["1","2","3","4","5","6"],"2-1":["1","2","3","4","5","6","7","8"],"2-2":["1","2"],"2-3":["1","2","3","4","5","6"],"2-4":["1","2","3","4","5","6","7","8","9","10"],"2-5":["1","2","3","4","5","6","7"],"2-6":["1","2","3","4","5","6"],"2-7":["1","2","3"],"2-8":["1","2","3"],"2-9":["1","2","3","4","5"],"2-10":["1","2"],"2-11":["1","2"],"2-12":["1","2","3"],"2-13":["1","2","3","4","5"],"2-14":["1","2","3","4","5"],"2-15":["1","2","3","4"],"2-16":["1","2"],"2-17":["1","2"],"2-18":["1","2","3","4"],"2-19":["1","2","3","4"],"2-20":["1","2","3"],"2-21":["1","2","3","4"],"2-22":["1","2","3","4","5","6"],"2-23":["1","2","3"],"2-24":["1","2","3","4","5"],"2-25":["1","2","3","4"],"2-26":["1","2"],"2-27":["1","2","3","4"],"2-28":["1","2"],"3-1":["1","2","3","4","5","6","7","8","9"],"3-2":["1","2","3","4","5","6","7","8"],"3-3":["1","2","3","4","5","6","7","8","9"],"3-4":["1","2","3","4","5"],"3-5":["1","2","3","4","5"],"3-6":["1","2","3","4"],"3-7":["1","2","3","4"],"3-8":["1","2","3","4"],"4-1":["1","2","3","4","5","6","7","8","9"],"4-2":["1","2","3","4","5","6","7","8","9","10"],"4-3":["1","2","3"],"5-1":["1","2","3","4"],"5-2":["1","2","3"],"5-3":["1","2","3","4","5"],"5-4":["1","2","3","4","5","6","7","8"],"5-5":["1","2"],"5-6":["1","2"],"5-7":["1","2"],"6-1":["1","2","3","4","5","6"],"6-2":["1","2","3","4","5","6"],"6-3":["1","2","3","4","5"],"6-4":["1","2"],"6-5":["1","2","3","4"],"6-6":["1","2","3","4"],"6-7":["1","2","3","4","5"],"6-8":["1","2","3","4"],"6-9":["1","2","3","4","5","6","7","8","9","10","11","12","13"],"7-1":["1","2","3","4"],"7-2":["1","2","3","4"],"7-3":["1","2","3","4","5","6","7","8","9"],"7-4":["1","2","3","4","5","6"],"7-5":["1","2","3","4","5","6","7","8"],"7-6":["1","2","3","4","5","6","7"],"8-1":["1","2","3"],"8-2":["1","2","3","4","5","6"],"9-1":["1","2","3","4","5","6"],"9-2":["1","2","3","4","5","6","7"],"9-3":["1","2","3","4","5","6","7"],"9-4":["1","2","3","4","5"],"10-1":["1","2","3","4"],"10-2":["1","2","3","4"]};
@@ -1988,6 +1989,15 @@ let pillarSession = { ok: 0, ng: 0 };
 let pillarStep = 0;        // 何項目まで表示したか
 let pillarLevel = +(localStorage.getItem('pillarLevel') || 1); // 1=柱のみ 2=柱+中見出し
 let pillarCurItems = [];   // 現在の題の表示項目（柱・中見出しを平坦化）
+// 柱1本ごとの成績（'題番号|項目キー' -> {c:正答数, t:出題数}）。穴埋めと同じ粒度で記録
+let pillarItemSRS = JSON.parse(localStorage.getItem('pillarItemSRS') || '{}');
+let pillarItemOk = {};     // 現在の題での柱ごとの判定
+let pillarPhase = 'reveal'; // reveal=めくる待ち / judge=柱1本の判定待ち / all=全部表示後の一括判定
+function pItemKey(sec, key) { return sec + '|' + key; }
+function pItemRate(sec, key) {
+  const r = pillarItemSRS[pItemKey(sec, key)];
+  return r && r.t ? Math.round(r.c / r.t * 100) : null;
+}
 
 function setPillarLevel(lv) {
   pillarLevel = lv;
@@ -2036,7 +2046,26 @@ function renderPillarStart() {
   setPillarLevel(pillarLevel);
   const scope = pillarScope(), due = pillarDueList();
   const studied = scope.filter(s => pillarSRS[s] && pillarSRS[s].total > 0).length;
-  $('pillarDueInfo').textContent = `範囲 ${scope.length}題中 ／ 今日の復習対象 ${due.length}題 ／ 学習済み ${studied}題`;
+  // 柱ごとの成績から、言えなかったことが多い柱を集計
+  let ptot = 0, pok = 0, weak = [];
+  for (const s of scope) {
+    for (const it of pillarItemsFor(s)) {
+      const r = pillarItemSRS[pItemKey(s, it.key)];
+      if (!r || !r.t) continue;
+      ptot += r.t; pok += r.c;
+      const rate = r.c / r.t;
+      if (rate < 0.9) weak.push({ s, n: it.n, name: it.name, rate, t: r.t });
+    }
+  }
+  weak.sort((a, b) => a.rate - b.rate);
+  const info = $('pillarDueInfo');
+  info.innerHTML = `範囲 ${scope.length}題中 ／ 今日の復習対象 ${due.length}題 ／ 学習済み ${studied}題`
+    + (ptot ? `<br><span class="text-[11px]">柱の正答率 <b>${Math.round(pok / ptot * 100)}%</b>（${ptot}回）</span>` : '')
+    + (weak.length ? `<div class="mt-2 text-left text-[11px] text-slate-500 dark:text-slate-400">
+        <div class="font-bold mb-0.5 text-rose-500">⚡ 言えていない柱（90%未満）${weak.length}本</div>
+        ${weak.slice(0, 8).map(w => `<div class="truncate">・${w.s}〔${w.n}〕${esc(String(w.name).slice(0, 16))} <b class="${w.rate < 0.7 ? 'text-rose-500' : 'text-amber-500'}">${Math.round(w.rate * 100)}%</b>(${w.t})</div>`).join('')}
+        ${weak.length > 8 ? `<div class="opacity-70">ほか${weak.length - 8}本</div>` : ''}
+      </div>` : '');
 }
 function startPillar(all) {
   const list = all ? pillarScope() : pillarDueList();
@@ -2067,20 +2096,28 @@ function pillarRender() {
   $('pillarDueBadge').className = 'text-[11px] font-bold px-2 py-0.5 rounded-full ' +
     (rate === null ? 'bg-slate-400 text-white' : rate >= 80 ? 'bg-emerald-500 text-white' : rate >= 50 ? 'bg-amber-500 text-white' : 'bg-rose-500 text-white');
   pillarStep = 0;
+  pillarItemOk = {};
+  pillarPhase = 'reveal';
   $('pillarList').innerHTML = '';
   $('pillarRevealRow').classList.remove('hidden');
-  $('pillarReveal').textContent = `次へ ▶ (1/${pillarCurItems.length})`;
+  $('pillarReveal').textContent = `▶ めくる (1/${pillarCurItems.length})`;
   $('pillarJudge').classList.add('hidden');
+  $('pillarJudgeHint').classList.add('hidden');
 }
-function pillarAppendItem(it) {
+function pillarAppendItem(it, idx) {
   const sec = pillarQueue[pillarIdx];
   const isSub = it.type === 's';
   const li = document.createElement('li');
+  li.id = 'pitem' + idx;
   li.className = 'pop flex gap-2 leading-relaxed items-start ' + (isSub ? 'text-[14px] pl-5' : 'text-[15px] font-bold');
   const mark = isSub ? subMarkChar(it.m) : '〔' + it.n + '〕';
+  const rate = pItemRate(sec, it.key);
+  const rcls = rate == null ? '' : rate >= 90 ? 'text-emerald-500' : rate >= 70 ? 'text-amber-500' : 'text-rose-500';
   li.innerHTML =
     `<span class="${isSub ? 'text-slate-400' : 'text-indigo-600 dark:text-indigo-400'} shrink-0">${mark}</span>` +
     `<span class="flex-1">${esc(it.name)}</span>` +
+    (rate == null ? '' : `<span class="text-[10px] ${rcls} shrink-0 font-bold">${rate}%</span>`) +
+    `<span class="pjudge text-[13px] shrink-0 w-3.5 text-center"></span>` +
     `<span class="text-[11px] text-slate-300 shrink-0">✎</span>`;
   li.onclick = () => editPillarItem(sec, it.key, it.name);
   $('pillarList').appendChild(li);
@@ -2088,21 +2125,72 @@ function pillarAppendItem(it) {
 }
 function pillarRenderList() {
   $('pillarList').innerHTML = '';
-  for (let i = 0; i < pillarStep; i++) pillarAppendItem(pillarCurItems[i]);
-}
-function pillarNextHeading() {
-  if (pillarStep < pillarCurItems.length) { pillarAppendItem(pillarCurItems[pillarStep]); pillarStep++; }
-  if (pillarStep >= pillarCurItems.length) {
-    $('pillarRevealRow').classList.add('hidden');
-    $('pillarJudge').classList.remove('hidden');
-  } else {
-    $('pillarReveal').textContent = `次へ ▶ (${pillarStep + 1}/${pillarCurItems.length})`;
+  for (let i = 0; i < pillarStep; i++) {
+    pillarAppendItem(pillarCurItems[i], i);
+    const it = pillarCurItems[i];
+    if (it.key in pillarItemOk) pillarMarkItem(i, pillarItemOk[it.key]);
   }
 }
-function pillarRevealAll() {
-  while (pillarStep < pillarCurItems.length) { pillarAppendItem(pillarCurItems[pillarStep]); pillarStep++; }
+// 柱1本をめくって、その柱の判定待ちにする
+function pillarNextHeading() {
+  if (pillarStep >= pillarCurItems.length) return;
+  pillarAppendItem(pillarCurItems[pillarStep], pillarStep);
+  pillarStep++;
+  pillarPhase = 'judge';
   $('pillarRevealRow').classList.add('hidden');
   $('pillarJudge').classList.remove('hidden');
+  const hint = $('pillarJudgeHint');
+  hint.textContent = `この柱を言えましたか？（${pillarStep}/${pillarCurItems.length}）`;
+  hint.classList.remove('hidden');
+}
+// 残りを全部表示して、題全体で一括判定（柱ごとの記録は付かない）
+function pillarRevealAll() {
+  while (pillarStep < pillarCurItems.length) { pillarAppendItem(pillarCurItems[pillarStep], pillarStep); pillarStep++; }
+  pillarPhase = 'all';
+  $('pillarRevealRow').classList.add('hidden');
+  $('pillarJudge').classList.remove('hidden');
+  const hint = $('pillarJudgeHint');
+  hint.textContent = 'この題全体の判定（柱ごとの記録は付きません）';
+  hint.classList.remove('hidden');
+}
+function pillarMarkItem(idx, ok) {
+  const li = document.getElementById('pitem' + idx);
+  if (!li) return;
+  const b = li.querySelector('.pjudge');
+  if (b) {
+    b.textContent = ok ? '✓' : '✗';
+    b.className = 'pjudge text-[13px] shrink-0 w-3.5 text-center font-bold ' + (ok ? 'text-emerald-500' : 'text-rose-500');
+  }
+  if (!ok) li.classList.add('text-rose-600', 'dark:text-rose-400');
+}
+// 判定ボタン（柱ごと／一括を自動で振り分け）
+function pillarJudgeBtn(ok) {
+  if (pillarPhase === 'judge') pillarGradeItem(ok);
+  else pillarFinishSection(ok);
+}
+// 柱1本の判定を記録して次へ
+function pillarGradeItem(ok) {
+  const sec = pillarQueue[pillarIdx];
+  const idx = pillarStep - 1;
+  const it = pillarCurItems[idx];
+  if (!it) return;
+  pillarItemOk[it.key] = ok;
+  const k = pItemKey(sec, it.key);
+  const r = pillarItemSRS[k] || { c: 0, t: 0 };
+  pillarItemSRS[k] = { c: r.c + (ok ? 1 : 0), t: r.t + 1 };
+  localStorage.setItem('pillarItemSRS', JSON.stringify(pillarItemSRS));
+  pillarMarkItem(idx, ok);
+  if (pillarStep >= pillarCurItems.length) {
+    // 全柱終了。1本でも言えなければ、その題は「言えなかった」扱い
+    const vals = Object.values(pillarItemOk);
+    pillarFinishSection(vals.length > 0 && vals.every(v => v));
+  } else {
+    pillarPhase = 'reveal';
+    $('pillarJudge').classList.add('hidden');
+    $('pillarJudgeHint').classList.add('hidden');
+    $('pillarRevealRow').classList.remove('hidden');
+    $('pillarReveal').textContent = `▶ めくる (${pillarStep + 1}/${pillarCurItems.length})`;
+  }
 }
 // 解答しながらタイトルを訂正（この端末に保存）
 function editPillarItem(sec, key, cur) {
@@ -2132,7 +2220,7 @@ function pillarSM2(sec, ok) {
   };
   localStorage.setItem('pillarSRS', JSON.stringify(pillarSRS));
 }
-function pillarGrade(ok) {
+function pillarFinishSection(ok) {
   const sec = pillarQueue[pillarIdx];
   pillarSM2(sec, ok);
   if (ok) { pillarSession.ok++; confetti(); }
@@ -2140,6 +2228,7 @@ function pillarGrade(ok) {
   pillarIdx++;
   pillarRender();
 }
+function pillarGrade(ok) { pillarFinishSection(ok); }
 function pillarDone() {
   $('pillarCard').classList.add('hidden'); $('pillarCard').classList.remove('flex');
   $('pillarDone').classList.remove('hidden'); $('pillarDone').classList.add('flex');
