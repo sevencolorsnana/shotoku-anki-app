@@ -213,8 +213,9 @@
       <label class="block">プロキシURL
         <input id="setProxy" type="text" class="mt-1 w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
       </label>
-      <label class="block">データベースID
-        <input id="setDb" type="text" class="mt-1 w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+      <label class="block">データベースID（所得税法・固定）
+        <input id="setDb" type="text" readonly aria-readonly="true" class="mt-1 w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 cursor-not-allowed opacity-70" title="科目間の混同を防ぐため、所得税法のデータベースに固定されています">
+        <span class="mt-1 block text-[11px] text-slate-400">科目間の混同を防ぐため変更できません</span>
       </label>
       <label class="flex items-center justify-between">終了後に不正解を即時復習
         <input id="setRetry" type="checkbox" class="w-5 h-5 accent-indigo-600" checked>
@@ -339,7 +340,7 @@
 
 <script>
 'use strict';
-const APP_VER = 'v53';  // 更新のたびに上げる（キャッシュ確認用）
+const APP_VER = 'v54';  // 更新のたびに上げる（キャッシュ確認用）
 const EXAM_DATE = new Date('2026-08-04T00:00:00');
 // 各題の大見出し〔n〕の構成（穴の有無に関わらず存在する見出し番号）
 const SECTION_STRUCT = {"1-1":["1","2","3","4","5"],"1-2":["1","2","3","4"],"1-3":["1","2","3","4","5","6"],"2-1":["1","2","3","4","5","6","7","8"],"2-2":["1","2"],"2-3":["1","2","3","4","5","6"],"2-4":["1","2","3","4","5","6","7","8","9","10"],"2-5":["1","2","3","4","5","6","7"],"2-6":["1","2","3","4","5","6"],"2-7":["1","2","3"],"2-8":["1","2","3"],"2-9":["1","2","3","4","5"],"2-10":["1","2"],"2-11":["1","2"],"2-12":["1","2","3"],"2-13":["1","2","3","4","5"],"2-14":["1","2","3","4","5"],"2-15":["1","2","3","4"],"2-16":["1","2"],"2-17":["1","2"],"2-18":["1","2","3","4"],"2-19":["1","2","3","4"],"2-20":["1","2","3"],"2-21":["1","2","3","4"],"2-22":["1","2","3","4","5","6"],"2-23":["1","2","3"],"2-24":["1","2","3","4","5"],"2-25":["1","2","3","4"],"2-26":["1","2"],"2-27":["1","2","3","4"],"2-28":["1","2"],"3-1":["1","2","3","4","5","6","7","8","9"],"3-2":["1","2","3","4","5","6","7","8"],"3-3":["1","2","3","4","5","6","7","8","9"],"3-4":["1","2","3","4","5"],"3-5":["1","2","3","4","5"],"3-6":["1","2","3","4"],"3-7":["1","2","3","4"],"3-8":["1","2","3","4"],"4-1":["1","2","3","4","5","6","7","8","9"],"4-2":["1","2","3","4","5","6","7","8","9","10"],"4-3":["1","2","3"],"5-1":["1","2","3","4"],"5-2":["1","2","3"],"5-3":["1","2","3","4","5"],"5-4":["1","2","3","4","5","6","7","8"],"5-5":["1","2"],"5-6":["1","2"],"5-7":["1","2"],"6-1":["1","2","3","4","5","6"],"6-2":["1","2","3","4","5","6"],"6-3":["1","2","3","4","5"],"6-4":["1","2"],"6-5":["1","2","3","4"],"6-6":["1","2","3","4"],"6-7":["1","2","3","4","5"],"6-8":["1","2","3","4"],"6-9":["1","2","3","4","5","6","7","8","9","10","11","12","13"],"7-1":["1","2","3","4"],"7-2":["1","2","3","4"],"7-3":["1","2","3","4","5","6","7","8","9"],"7-4":["1","2","3","4","5","6"],"7-5":["1","2","3","4","5","6","7","8"],"7-6":["1","2","3","4","5","6","7"],"8-1":["1","2","3"],"8-2":["1","2","3","4","5","6"],"9-1":["1","2","3","4","5","6"],"9-2":["1","2","3","4","5","6","7"],"9-3":["1","2","3","4","5","6","7"],"9-4":["1","2","3","4","5"],"10-1":["1","2","3","4"],"10-2":["1","2","3","4"]};
@@ -357,7 +358,7 @@ const DEFAULTS = {
 const $ = id => document.getElementById(id);
 
 // GitHub Pages は同じオリジン配下で localStorage を共有するため、科目ごとに分離する。
-// 旧共通設定からは表示・接続に必要な項目だけを一度だけ移行し、DBは所得税法のものに固定する。
+// v54からは科目・DB・スキーマをキャッシュにも記録し、異なるデータは復元しない。
 const STORAGE_PREFIX = 'shotoku:';
 const appStorage = {
   getItem: key => window.localStorage.getItem(STORAGE_PREFIX + key),
@@ -372,11 +373,36 @@ function readJson(storage, key, fallback) {
     return fallback;
   }
 }
+const SUBJECT_ID = 'shotoku';
+const CACHE_SCHEMA = 2;
+function stateMeta() {
+  return { subject: SUBJECT_ID, db: DEFAULTS.db, flagDb: DEFAULTS.flagDb, schema: CACHE_SCHEMA };
+}
+function isCurrentStateMeta(meta) {
+  return !!meta && meta.subject === SUBJECT_ID && meta.db === DEFAULTS.db &&
+    meta.flagDb === DEFAULTS.flagDb && meta.schema === CACHE_SCHEMA;
+}
+const SUBJECT_CACHE_KEYS = [
+  'quizState', 'rangeSel', 'wrongMap', 'history', 'answerLog', 'weakMarks', 'fullStats',
+  'pillarItemSRS', 'pillarLevel', 'pillarOv', 'pillarSRS', 'presets', 'holeFlags',
+];
+function invalidateSubjectCaches() {
+  SUBJECT_CACHE_KEYS.forEach(key => appStorage.removeItem(key));
+}
+function initializeSubjectCaches() {
+  if (isCurrentStateMeta(readJson(appStorage, 'stateMeta', null))) return;
+  invalidateSubjectCaches();
+  appStorage.setItem('stateMeta', JSON.stringify(stateMeta()));
+}
+function enforceFixedDatabases() {
+  cfg.db = DEFAULTS.db;
+  cfg.flagDb = DEFAULTS.flagDb;
+}
 const savedCfg = readJson(appStorage, 'cfg', null);
 const legacyCfg = savedCfg ? null : readJson(window.localStorage, 'cfg', null);
 function legacySettingsForIncome(legacy) {
-  if (!legacy || typeof legacy !== 'object') return null;
-  if (legacy.db === DEFAULTS.db) return legacy;
+  // 共通領域は消費税法の設定で上書きされた可能性があるため、DBまで完全一致する場合だけ読む。
+  if (!legacy || typeof legacy !== 'object' || legacy.db !== DEFAULTS.db) return null;
   const safe = {};
   for (const key of ['token', 'proxy', 'skip', 'retry', 'dark', 'orderMode']) {
     if (Object.prototype.hasOwnProperty.call(legacy, key)) safe[key] = legacy[key];
@@ -385,9 +411,12 @@ function legacySettingsForIncome(legacy) {
 }
 const safeLegacyCfg = legacySettingsForIncome(legacyCfg);
 let cfg = Object.assign({}, DEFAULTS, savedCfg || safeLegacyCfg || {});
-cfg.db = DEFAULTS.db;
-cfg.flagDb = DEFAULTS.flagDb;
-if (!savedCfg && safeLegacyCfg) appStorage.setItem('cfg', JSON.stringify(cfg));
+enforceFixedDatabases();
+// 既存の所得税法設定はトークン等を残しつつ、DB指定だけを必ず正規化して保存する。
+if (!savedCfg || savedCfg.db !== DEFAULTS.db || savedCfg.flagDb !== DEFAULTS.flagDb) {
+  appStorage.setItem('cfg', JSON.stringify(cfg));
+}
+initializeSubjectCaches();
 
 // ── 設定 ──
 function applyDark() { document.documentElement.classList.toggle('dark', cfg.dark); }
@@ -395,10 +424,10 @@ applyDark();
 function saveSettings() {
   cfg.token = $('setToken').value.trim();
   cfg.proxy = $('setProxy').value.trim().replace(/\/$/, '');
-  cfg.db = $('setDb').value.trim();
   cfg.retry = $('setRetry').checked;
   cfg.orderMode = $('setOrder').value;
   cfg.dark = $('setDark').checked;
+  enforceFixedDatabases();
   appStorage.setItem('cfg', JSON.stringify(cfg));
   applyDark();
   $('saveMsg').textContent = '✓ 保存しました';
@@ -442,8 +471,47 @@ function daysToExam() { return Math.max(0, Math.ceil((EXAM_DATE - new Date()) / 
 $('daysLeft').textContent = daysToExam();
 $('appVer').textContent = APP_VER;
 
+// ── 科目・データソースの安全確認 ──
+// 読み込み元をカードに記録し、古いキャッシュや別科目のカードからNotionへ書き込ませない。
+let clearRuntimeSubjectCaches = () => {};
+function tagCard(card) {
+  return Object.assign(card, { sourceMeta: stateMeta() });
+}
+function isCurrentCard(card) {
+  return !!card && typeof card.pageId === 'string' && card.pageId.length > 0 &&
+    isCurrentStateMeta(card.sourceMeta);
+}
+function areCurrentCards(list) {
+  return Array.isArray(list) && list.every(isCurrentCard);
+}
+function guardSourceMeta(meta, action) {
+  if (isCurrentStateMeta(meta)) return true;
+  invalidateSubjectCaches();
+  appStorage.setItem('stateMeta', JSON.stringify(stateMeta()));
+  clearRuntimeSubjectCaches();
+  toast(`安全保護: ${action}を中止しました。キャッシュを削除して再取得してください。`, 'bg-rose-500');
+  return false;
+}
+function guardCardSource(card, action) {
+  return guardSourceMeta(card && card.sourceMeta, action);
+}
+function assertNotionScope(path, payload, method) {
+  enforceFixedDatabases();
+  const query = path.match(/^\/v1\/databases\/([^/]+)\/query$/);
+  if (query && query[1] !== DEFAULTS.db && query[1] !== DEFAULTS.flagDb) {
+    throw new Error('安全保護: 所得税法以外のデータベースには接続できません');
+  }
+  if (method === 'POST' && path === '/v1/pages') {
+    const parentDb = payload && payload.parent && payload.parent.database_id;
+    if (parentDb !== DEFAULTS.db && parentDb !== DEFAULTS.flagDb) {
+      throw new Error('安全保護: 所得税法以外のデータベースには書き込めません');
+    }
+  }
+}
+
 // ── Notion API ──
 async function notion(path, payload, method = 'POST') {
+  assertNotionScope(path, payload, method);
   const res = await fetch(cfg.proxy + path, {
     method,
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.token, 'Notion-Version': '2022-06-28' },
@@ -541,10 +609,10 @@ function rankBadge(sec, cls) {
 let queueIdx = 0;
 let sessionResults = {};
 let wrongCards = [];
-let wrongMap = JSON.parse(appStorage.getItem('wrongMap') || '{}');
-let history = JSON.parse(appStorage.getItem('history') || '{}'); // section -> {ok, ng, title, heads:{n:{ok,ng}}}
+let wrongMap = readJson(appStorage, 'wrongMap', {});
+let history = readJson(appStorage, 'history', {}); // section -> {ok, ng, title, heads:{n:{ok,ng}}}
 // 日付つき回答ログ（本日/過去N日の正答率算出用。端末ローカル）
-let answerLog = JSON.parse(appStorage.getItem('answerLog') || '[]');
+let answerLog = readJson(appStorage, 'answerLog', []);
 let statPeriod = 'all'; // all=累計(Notion) / today / 7d
 function logAnswer(c, ok) {
   answerLog.push({ d: todayStr(), s: c.section, h: headNum(c), ok: ok ? 1 : 0 });
@@ -591,7 +659,7 @@ function toggleStatRange() { statRangeOnly = !statRangeOnly; renderStats(); }
 
 // ── 弱点克服モード（見出し単位）──
 const WEAK_RATE = 0.7; // この正答率を下回る見出しは自動で弱点
-let weakMarks = JSON.parse(appStorage.getItem('weakMarks') || '[]'); // 手動マークした見出し ["題|n"]
+let weakMarks = readJson(appStorage, 'weakMarks', []); // 手動マークした見出し ["題|n"]
 function headKey(c) { return c.section + '|' + headNum(c); }
 function isManualWeak(c) { return weakMarks.includes(headKey(c)); }
 function toggleWeak() {
@@ -618,7 +686,7 @@ async function loadWeakness(rate = WEAK_RATE) {
   const msg = $('loadingMsg');
   if (!cfg.token) { msg.textContent = '⚙設定タブでNotionトークンを入力してください'; return; }
   try {
-    const mapCard = r => ({
+    const mapCard = r => tagCard({
       pageId: r.id, id: prop(r.properties, '穴ID', 'title'), section: prop(r.properties, '題番号', 'rich_text'),
       title: prop(r.properties, '題名', 'rich_text'), heading: prop(r.properties, '大見出し', 'rich_text'),
       question: prop(r.properties, '問題文', 'rich_text'), answer: prop(r.properties, '正解', 'rich_text'),
@@ -680,14 +748,19 @@ function todayStr() {
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
-function selectedSections() { return JSON.parse(appStorage.getItem('rangeSel') || 'null'); }
+function selectedSections() { return readJson(appStorage, 'rangeSel', null); }
 
 // ── セッションキャッシュ（リロードしても再取得しない） ──
 function saveState() {
   try {
     // スコープ復習中はメインキューの退避状態を保存（リロードで主キューに復帰）
     const main = scoped ? scopedSaved : { cards, queueIdx };
+    if (!areCurrentCards(main.cards) || !areCurrentCards(baseCards)) {
+      guardSourceMeta(null, '不明な出題データの保存');
+      return;
+    }
     appStorage.setItem('quizState', JSON.stringify({
+      stateMeta: stateMeta(),
       date: todayStr(), range: appStorage.getItem('rangeSel') || 'null',
       cards: main.cards, queueIdx: main.queueIdx, baseCards, sessionResults,
       wrongIds: wrongCards.map(c => c.id), streak,
@@ -697,9 +770,14 @@ function saveState() {
 function loadState() {
   try {
     const s = JSON.parse(appStorage.getItem('quizState') || 'null');
-    if (!s || s.date !== todayStr()) return false;
+    const cachedBase = s && (s.baseCards && s.baseCards.length ? s.baseCards : (s.cards || []));
+    if (!s || !isCurrentStateMeta(s.stateMeta) || !areCurrentCards(s.cards || []) || !areCurrentCards(cachedBase)) {
+      appStorage.removeItem('quizState');
+      return false;
+    }
+    if (s.date !== todayStr()) return false;
     if (s.range !== (appStorage.getItem('rangeSel') || 'null')) return false;
-    baseCards = s.baseCards && s.baseCards.length ? s.baseCards : (s.cards || []);
+    baseCards = cachedBase;
     // cards は baseCards と「同一オブジェクト」を参照させる（編集が出題キューにも反映されるように）
     mergeRank(baseCards);
     const byId = {}; baseCards.forEach(c => byId[c.id] = c);
@@ -718,6 +796,8 @@ async function clearCache() {
     try { await _bgSync; } catch (e) {}
   }
   appStorage.removeItem('quizState');
+  appStorage.removeItem('fullStats');
+  fullStats = null;
   toast('キャッシュを削除しました', 'bg-rose-500');
   showTab('quiz');
   loadCards(true);
@@ -746,7 +826,7 @@ async function loadCards(force) {
     return;
   }
   try {
-    const mapCard = r => ({
+    const mapCard = r => tagCard({
       pageId: r.id,
       id: prop(r.properties, '穴ID', 'title'),
       section: prop(r.properties, '題番号', 'rich_text'),
@@ -1103,6 +1183,7 @@ function undo() {
   const u = undoStack.pop();
   if (!u) return;
   const c = cards[u.idx];
+  if (!c || !guardCardSource(c, '採点の取り消し')) return;
   // ローカル統計の巻き戻し
   const st = sessionResults[c.section];
   if (st) { u.ok ? st.ok-- : st.ng--; }
@@ -1151,6 +1232,7 @@ function undo() {
 function judge(ok) {
   const c = cards[queueIdx];
   if (!c) return;
+  if (!guardCardSource(c, '採点結果の保存')) return;
   undoStack.push({
     idx: queueIdx, ok, inWrongReview,
     wasWrong: !!wrongMap[c.id], streak,
@@ -1242,6 +1324,7 @@ function showSectionDone(sec) {
   $('secDoneBox').classList.remove('hidden'); $('secDoneBox').classList.add('flex');
   $('footerBar').classList.add('hidden');
   showSectionDone._sec = sec;
+  showSectionDone._sourceMeta = all[0] && all[0].sourceMeta;
 }
 function reviewSectionWrong() {
   const sec = showSectionDone._sec;
@@ -1297,7 +1380,20 @@ function renderRepairBanner(c) {
 
 // ── フラグ（穴抜け・要修正箇所をNotionに記録して後でClaudeが穴生成） ──
 let notionFlags = [];   // Notionフラグ（未対応）のキャッシュ
-let fullStats = JSON.parse(appStorage.getItem('fullStats') || 'null'); // Notion全題集計（累計・端末共通）
+function loadFullStats() {
+  const cached = readJson(appStorage, 'fullStats', null);
+  if (!cached || !isCurrentStateMeta(cached.stateMeta) || !cached.secs || typeof cached.secs !== 'object') {
+    if (cached) appStorage.removeItem('fullStats');
+    return null;
+  }
+  return cached;
+}
+let fullStats = loadFullStats(); // Notion全題集計（累計・端末共通）
+clearRuntimeSubjectCaches = () => {
+  cards = []; baseCards = []; wrongCards = []; queueIdx = 0; sessionResults = {};
+  wrongMap = {}; history = {}; answerLog = []; weakMarks = []; fullStats = null; notionFlags = [];
+  showSectionDone._sourceMeta = null; openAdd._sourceMeta = null; _holeSel = null;
+};
 
 // Notionの全穴から累計正答率を集計（端末を跨いで共通、リセットされない）
 async function aggregateAllFromNotion() {
@@ -1325,7 +1421,7 @@ async function aggregateAllFromNotion() {
       const hh = o.heads[n] = o.heads[n] || { ok: 0, ng: 0 };
       hh.ok += correct; hh.ng += (total - correct);
     }
-    fullStats = { ts: Date.now(), secs };
+    fullStats = { stateMeta: stateMeta(), ts: Date.now(), secs };
     appStorage.setItem('fullStats', JSON.stringify(fullStats));
     toast('✓ 集計完了', 'bg-emerald-600');
     renderStats();
@@ -1334,6 +1430,7 @@ async function aggregateAllFromNotion() {
 function flagSpot() {
   const c = cards[queueIdx];
   if (!c) return;
+  if (!guardCardSource(c, 'フラグ作成')) return;
   $('flagWhere').textContent = `問題${c.section} ${c.heading || ''} ・ #穴${c.holeNum}`;
   $('flagNote').value = '';
   $('flagMsg').textContent = '';
@@ -1344,6 +1441,7 @@ function closeFlag() { $('flagModal').classList.add('hidden'); }
 async function saveFlag() {
   const c = cards[queueIdx];
   if (!c) return;
+  if (!guardCardSource(c, 'フラグ保存')) return;
   const note = $('flagNote').value.trim();
   $('flagSaveBtn').disabled = true;
   $('flagMsg').textContent = '保存中...';
@@ -1376,6 +1474,7 @@ async function refreshFlags() {
       res = res.concat(j.results); cursor = j.has_more ? j.next_cursor : undefined;
     } while (cursor);
     notionFlags = res.map(p => ({
+      sourceMeta: stateMeta(),
       pageId: p.id,
       section: prop(p.properties, '題番号', 'rich_text'),
       heading: prop(p.properties, '大見出し', 'rich_text'),
@@ -1404,6 +1503,8 @@ function renderSettingsFlags() {
   </div>`;
 }
 async function markFlagDone(pageId) {
+  const flag = notionFlags.find(f => f.pageId === pageId);
+  if (!flag || !guardSourceMeta(flag.sourceMeta, 'フラグ更新')) return;
   try {
     await notion('/v1/pages/' + pageId, { properties: { '状態': { select: { name: '対応済' } } } }, 'PATCH');
     notionFlags = notionFlags.filter(f => f.pageId !== pageId);
@@ -1489,6 +1590,7 @@ function reviewAllToday() {
 function openEdit() {
   const c = cards[queueIdx];
   if (!c) return;
+  if (!guardCardSource(c, '穴の編集')) return;
   $('editId').textContent = c.id;
   $('editQ').value = c.question;
   $('editA').value = c.answer;
@@ -1500,6 +1602,7 @@ function closeEdit() { $('editModal').classList.add('hidden'); }
 async function deleteHole() {
   const c = cards[queueIdx];
   if (!c) return;
+  if (!guardCardSource(c, '穴の削除')) return;
   if (!confirm(`この穴を削除しますか？\n${c.section} #穴${c.holeNum}\n正解: ${c.answer}`)) return;
   $('editMsg').textContent = '削除中...';
   try {
@@ -1550,6 +1653,7 @@ function applyEditLocally(c, newQ) {
 async function saveEdit() {
   const c = cards[queueIdx];
   if (!c) return;
+  if (!guardCardSource(c, '穴の編集保存')) return;
   const q = $('editQ').value, a = $('editA').value.trim();
   $('editSaveBtn').disabled = true;
   $('editMsg').textContent = '保存中...';
@@ -1591,8 +1695,11 @@ function plainHeadingText(c) {
 function openAdd() {
   const c = cards[queueIdx];
   const sec = c ? c.section : (showSectionDone._sec || '');
+  const sourceMeta = c ? c.sourceMeta : showSectionDone._sourceMeta;
+  if (!guardSourceMeta(sourceMeta, '穴の追加')) return;
   $('addSecLbl').textContent = sec;
   openAdd._sec = sec;
+  openAdd._sourceMeta = sourceMeta;
   $('addHeading').value = c ? c.heading : '';
   // 見出し全文を自動入力。穴にしたい語を〔_〕で囲み、その語を正解欄に入れるだけ
   $('addQ').value = plainHeadingText(c);
@@ -1618,6 +1725,7 @@ let _holeSel = null; // {sec, heading, plainText, holeRanges:[{num,ps,pe,answer,
 function openHoleSel() {
   const c = cards[queueIdx];
   if (!c) return;
+  if (!guardCardSource(c, '穴の追加・統合')) return;
   if (buildHoleSel(c.section, c.heading)) {
     $('editModal').classList.add('hidden');
     $('holeSelModal').classList.remove('hidden');
@@ -1626,7 +1734,7 @@ function openHoleSel() {
 // モーダルの本文表示を（再）構築。連続追加でも最新の状態を表示
 function buildHoleSel(sec, heading) {
   const hcards = baseCards.filter(x => x.section === sec && x.heading === heading);
-  if (!hcards.length) return false;
+  if (!hcards.length || !areCurrentCards(hcards)) return false;
   const byNum = {}; hcards.forEach(x => byNum[x.holeNum] = x);
   const rep = hcards[0];
   const tmpl = rep.question.replace('〔_〕', `〔●${rep.holeNum}〕`);
@@ -1637,12 +1745,13 @@ function buildHoleSel(sec, heading) {
     const m = part.match(/^〔●(\d+)〕$/);
     if (m) {
       const num = +m[1], ans = (byNum[num] || {}).answer || '';
-      ranges.push({ num, ps: pos, pe: pos + ans.length, answer: ans, pageId: (byNum[num] || {}).pageId });
+      ranges.push({ num, ps: pos, pe: pos + ans.length, answer: ans, pageId: (byNum[num] || {}).pageId,
+        sourceMeta: (byNum[num] || {}).sourceMeta });
       html += `<mark data-num="${num}" style="background:#fde68a;color:#92400e;border-radius:3px;padding:0 1px;">${esc(ans)}</mark>`;
       plain += ans; pos += ans.length;
     } else { html += esc(part); plain += part; pos += part.length; }
   }
-  _holeSel = { sec, heading, plainText: plain, holeRanges: ranges, byNum, sel: null };
+  _holeSel = { sec, heading, plainText: plain, holeRanges: ranges, byNum, sourceMeta: rep.sourceMeta, sel: null };
   $('holeSelWhere').textContent = `${sec} ${heading}`;
   $('holeSelText').innerHTML = html;
   $('holeSelMsg').textContent = '本文をなぞって選択してください';
@@ -1673,6 +1782,11 @@ function selOffsets(root) {
 }
 async function applyHoleSelection() {
   if (!_holeSel) return;
+  if (!guardSourceMeta(_holeSel.sourceMeta, '穴の追加・統合')) return;
+  if (!_holeSel.holeRanges.every(h => !h.pageId || isCurrentStateMeta(h.sourceMeta))) {
+    guardSourceMeta(null, '既存穴の更新');
+    return;
+  }
   // ボタン押下で選択が消えるため、記憶しておいた範囲を優先して使う
   const off = selOffsets($('holeSelText')) || _holeSel.sel;
   if (!off) { $('holeSelMsg').textContent = '⚠ 本文から穴にする箇所を選択してください'; return; }
@@ -1724,11 +1838,11 @@ async function applyHoleSelection() {
       const ci = cards.findIndex(x => x.pageId === h.pageId); if (ci >= 0) cards.splice(ci, 1);
       const wc = wrongCards.findIndex(x => x.pageId === h.pageId); if (wc >= 0) wrongCards.splice(wc, 1);
     }
-    const newCard = {
+    const newCard = tagCard({
       pageId: res.id, id, section: sec, title: SECTION_TITLES[sec] || '', heading,
       question: qNew, answer: newAnswer, holeNum: newNum, rank: '★',
       interval: 1, ef: 2.5, correct: 0, total: 0,
-    };
+    });
     baseCards.push(newCard);
     resortSection(sec);
     const curId = cards[queueIdx] ? cards[queueIdx].id : null;
@@ -1753,11 +1867,13 @@ async function applyHoleSelection() {
     queueBgSync(async () => {
       for (const h of keep) {
         if (!h.pageId) continue;
+        if (!guardSourceMeta(h.sourceMeta, '既存穴の更新')) throw new Error('安全保護により更新を中止しました');
         const q = T.replace(`〔●${h.num}〕`, '〔_〕');
         await notion('/v1/pages/' + h.pageId, { properties: { '問題文': { rich_text: [{ text: { content: q.slice(0, 2000) } }] } } }, 'PATCH');
       }
       for (const h of absorbed) {
         if (!h.pageId) continue;
+        if (!guardSourceMeta(h.sourceMeta, '既存穴の削除')) throw new Error('安全保護により削除を中止しました');
         await notion('/v1/pages/' + h.pageId, { archived: true }, 'PATCH');
       }
     });
@@ -1767,6 +1883,7 @@ async function applyHoleSelection() {
   $('holeSelBtn').disabled = false;
 }
 async function saveAdd() {
+  if (!guardSourceMeta(openAdd._sourceMeta, '穴の追加')) return;
   const sec = openAdd._sec;
   const heading = $('addHeading').value.trim();
   const q = $('addQ').value.trim();
@@ -1796,11 +1913,11 @@ async function saveAdd() {
       '出題回数': { number: 0 },
     };
     const res = await notion('/v1/pages', { parent: { database_id: cfg.db }, properties: props });
-    const newCard = {
+    const newCard = tagCard({
       pageId: res.id, id, section: sec, title: SECTION_TITLES[sec] || '',
       heading, question: q, answer: a, holeNum, rank: '★',
       interval: 1, ef: 2.5, correct: 0, total: 0,
-    };
+    });
     // 今日のキューに即時挿入（現在位置の直後）
     baseCards.push(newCard);
     cards.splice(queueIdx + 1, 0, newCard);
@@ -1818,6 +1935,7 @@ async function saveAdd() {
 
 // 同じ題のすべての穴に問題文の修正を反映する
 async function propagateEdit(c, newQ) {
+  if (!guardCardSource(c, '連動編集')) return 0;
   // 編集後本文（全穴をマーカー化した見出し本文）から、同見出しの各穴の問題文を直接再生成
   const base = newQ.replace('〔_〕', `〔●${c.holeNum}〕`);
 
@@ -2370,8 +2488,10 @@ function loadPreset(name) {
 // 旧バージョンで端末内に溜めたフラグ(localStorage)をNotionへ移行（1回だけ）
 async function migrateLocalFlags() {
   if (!cfg.token || !cfg.flagDb) return;
-  let old = [];
-  try { old = JSON.parse(appStorage.getItem('holeFlags') || '[]'); } catch (e) { return; }
+  const cached = readJson(appStorage, 'holeFlags', null);
+  // v54以降の科目識別済みデータだけを移行する。識別のない旧共有キャッシュはNotionへ書き込まない。
+  if (!cached || !isCurrentStateMeta(cached.stateMeta) || !Array.isArray(cached.items)) return;
+  const old = cached.items;
   if (!old.length) return;
   let moved = 0;
   for (const f of old) {
